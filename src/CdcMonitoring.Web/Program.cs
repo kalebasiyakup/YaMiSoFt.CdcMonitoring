@@ -42,7 +42,6 @@ try
         app.UseExceptionHandler("/Error", createScopeForErrors: true);
     }
 
-    app.UseStaticFiles();
     app.UseAntiforgery();
 
     app.UseHttpMetrics();
@@ -54,6 +53,7 @@ try
         Predicate = check => check.Tags.Contains("ready")
     });
 
+    app.MapStaticAssets();
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
 

@@ -111,6 +111,41 @@
 - **EF Core `ExecuteUpdateAsync`** (EF Core 7+) atomik koşullu güncellemeler için
   idealdir — "SELECT sonra UPDATE" pattern'inin race condition riskini taşımaz,
   tek bir SQL UPDATE statement'ı üretir.
+- **.NET 8 → .NET 10 yükseltmesi** (tüm `.csproj`'larda `TargetFramework`, EF Core/
+  Npgsql/Serilog paketleri 10.x'e bump edildi) sırasında iki gerçek regresyon çıktı:
+  - **Npgsql 10.x, bağlantı açarken `libgssapi_krb5.so.2`'yi native olarak yüklemeye
+    çalışır**; bu, `mcr.microsoft.com/dotnet/aspnet:10.0` (Debian slim) imajında
+    yoktur ve eksikse her bağlantıda gürültülü bir yükleme hatası loglanır (SCRAM/plain
+    auth'a döner ama gerçek bir Kerberos/GSS ortamında sert hataya dönüşür). Çözüm:
+    Dockerfile runtime aşamasına `apt-get install -y libgssapi-krb5-2` eklemek.
+  - **Docker multi-stage build'de `COPY *.csproj` → `dotnet restore` → `COPY src/` →
+    `dotnet publish --no-restore` kalıbı, Blazor Server'ın `_framework/blazor.web.js`
+    dosyasını sessizce 404'e düşürür.** Kök neden: bu JS dosyasını sağlayan örtük
+    `Microsoft.AspNetCore.App.Internal.Assets` NuGet paketinin restore edilip
+    edilmeyeceği, restore anında projede bir `wwwroot/` klasörünün var olup olmadığına
+    bağlı; katmanlama optimizasyonu restore'u yalnızca `.csproj` dosyaları kopyalanmışken
+    çalıştırdığından (henüz `wwwroot` yok), paket hiç restore edilmez ve `dotnet publish
+    --no-restore` bunu asla telafi etmez. Sonuç: SignalR circuit hiç kurulamaz, tüm
+    `InteractiveServer` bileşenleri sessizce statik/etkileşimsiz render'a düşer (form
+    submit'leri ham HTTP POST gibi davranır, hiçbir şey kaydetmez, sunucu tarafında hata
+    logu da yoktur — teşhisi zorlaştıran asıl sebep budur). **Çözüm: `dotnet publish`
+    çağrısından `--no-restore`'u kaldırmak** (restore paket indirmesi zaten global NuGet
+    cache'inden geldiği için maliyeti küçük, ama `wwwroot` mevcutken restore/evaluate'in
+    yeniden çalışmasını garanti eder). Bu tür "publish sonrası temel bir framework
+    dosyası 404" belirtisi görülürse önce bunu kontrol edin.
+- **Blazor Server'ın `blazor-error-ui` (`#blazor-error-ui`) div'i her zaman DOM'dadır**
+  (CSS `display:none` ile gizli, yalnızca gerçek bir circuit hatasında görünür hale
+  gelir). Chrome automation'ın `read_page` (accessibility tree) çıktısı bu elementi
+  her zaman "generic" olarak listeler — **gerçekten görünür olup olmadığını anlamak
+  için ekran görüntüsü almak veya `getComputedStyle(...).display` kontrol etmek
+  gerekir**, yoksa yanlışlıkla "hata var" sanılıp gereksiz debug'a girilir (bu oturumda
+  olduğu gibi).
+- **Chrome automation `computer` aracının `left_click`'i (hem koordinat hem `ref` ile)
+  bazen bir `<button type="submit">` üzerinde tıklama olayını sayfaya iletmiyor**
+  (görsel olarak buton üzerinde gibi görünse de sunucuda hiçbir istek/log oluşmuyor).
+  Birkaç kez retry işe yaramazsa, `javascript_tool` ile
+  `document.querySelector('button[type="submit"]').click()` çalıştırmak güvenilir bir
+  fallback'tir.
 
 ## Yapı/Konvansiyonlar
 

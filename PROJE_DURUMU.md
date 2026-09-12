@@ -9,7 +9,11 @@
 
 ## Genel Durum
 
-BRD'nin 3 fazı da (FR-01..FR-14, NFR-01..NFR-08) uygulanmış, `docker-compose.local.yml` ile gerçek PostgreSQL logical replication ve gerçek SMTP (Mailpit) üzerinden uçtan uca canlı doğrulanmıştır. Ayrıca BRD'de olmayan iki ek iş tamamlanmıştır: tüm operasyonel ayarların DB+UI'a taşınması ve UI'daki İngilizce metinlerin Türkçeleştirilmesi.
+BRD'nin 3 fazı da (FR-01..FR-14, NFR-01..NFR-08) uygulanmış, `docker-compose.local.yml` ile gerçek PostgreSQL logical replication ve gerçek SMTP (Mailpit) üzerinden uçtan uca canlı doğrulanmıştır. Ayrıca BRD'de olmayan dört ek iş tamamlanmıştır: tüm operasyonel ayarların DB+UI'a taşınması, UI'daki İngilizce metinlerin Türkçeleştirilmesi, **.NET 8 → .NET 10 yükseltmesi** ve **UI'ın görsel modernizasyonu**.
+
+**UI modernizasyonu** (`app.css`, `MainLayout.razor.css`, `NavMenu.razor.css`) CSS-only olarak yapıldı — hiçbir `.razor` markup'ı değişmedi, mevcut Bootstrap sınıfları (`table`, `btn`, `badge`, `alert`, `form-control`) korunarak üzerine modern bir tasarım dili (CSS custom properties ile renk paleti, kart görünümlü içerik alanı, yumuşak gölgeler, modern tipografi, koyu lacivert sidebar, pill-shaped badge'ler) bindirildi. `/connections`, `/connections/new`, `/topology`, `/settings` ekranlarında görsel olarak doğrulandı. Harici font/CDN bağımlılığı eklenmedi (sistem fontu kullanıldı) — projenin "vis-network self-hosted, CDN bağımlılığı yok" ilkesiyle tutarlı.
+
+**.NET 10 yükseltmesi tamamlandı ve canlı doğrulandı** (`dotnet build` 0 hata, `dotnet test` 42/42, Docker Compose üzerinde gerçek pub-db/sub-db ile uçtan uca). Yükseltme sırasında iki regresyon bulunup düzeltildi: (1) Npgsql 10'un ihtiyaç duyduğu `libgssapi-krb5-2` native kütüphanesi `aspnet:10.0` imajında eksikti — Dockerfile'a eklendi; (2) Dockerfile'ın `COPY *.csproj` → restore → `COPY src/` → `publish --no-restore` katmanlama kalıbı, `wwwroot` restore anında henüz kopyalanmadığından Blazor'un `_framework/blazor.web.js`'ini sağlayan örtük paketin hiç restore edilmemesine ve dolayısıyla SignalR circuit'in hiç kurulamamasına yol açıyordu (tüm etkileşimli formlar sessizce bozuktu) — `--no-restore` kaldırılarak düzeltildi. Ayrıntılar için `memory.md`'deki "Teknik Tuzaklar" bölümüne bakın.
 
 **Kod incelemesi tamamlandı** (`/code-review high --fix`, ~17 dk sürdü, 172 tool-call, 9 finder agent). 10 gerçek bulgu buldu ve hepsini düzeltti; 2 aday bulguyu (vis-network üzerinden XSS iddiası, `ConsecutiveHealthCheckFailures=0` senaryosu) inceleyip yanlış olduğunu kanıtlayarak gereksiz değişiklik yapmadı. `dotnet build` (0 hata) ve `dotnet test` (42/42) bu oturumda ayrıca doğrulandı. **Henüz commit edilmedi** — `git status`/`git diff` ile gözden geçirip commit etmek bir sonraki oturumun ilk işi olmalı.
 
@@ -23,6 +27,8 @@ BRD'nin 3 fazı da (FR-01..FR-14, NFR-01..NFR-08) uygulanmış, `docker-compose.
 | Ek-1 | Tüm operasyonel ayarların (appsettings.json → DB + `/settings` UI) taşınması, tick-tabanlı zamanlama, çoklu replika güvenli claim mekanizması | ✅ Tamamlandı, çoklu replika testiyle doğrulandı |
 | Ek-2 | UI'daki İngilizce metinlerin Türkçeleştirilmesi | ✅ Tamamlandı |
 | Ek-3 | Genel kod incelemesi (`/code-review high --fix`) | ✅ Tamamlandı, 10 bulgu düzeltildi — **commit edilmedi** |
+| Ek-4 | .NET 8 → .NET 10 yükseltmesi (TargetFramework, EF Core/Npgsql/Serilog paketleri, Dockerfile) | ✅ Tamamlandı, canlı doğrulandı — **commit edilmedi** |
+| Ek-5 | UI görsel modernizasyonu (CSS-only: renk paleti, tipografi, kart/tablo/form/badge/buton stilleri, sidebar) | ✅ Tamamlandı, tüm ana sayfalarda görsel doğrulandı — **commit edilmedi** |
 
 ## Mimari Özet
 
@@ -34,7 +40,7 @@ Bunlar bilinçli olarak kapsam dışı bırakılmış veya gerçek ortamda henü
 
 1. **OIDC/SSO entegrasyonu yok (NFR-03).** `ICurrentUserAccessor` altyapısı hazır (`HttpContextCurrentUserAccessor`), ama gerçek bir IdP'ye bağlanmadı — audit loglarında kullanıcı adı yerine "system" görünüyor. Kurumsal IdP detayları (endpoint, client tipi) netleşince ASP.NET Core OIDC middleware eklenmeli.
 2. **Quartz clustered Postgres job store kapalı** (`Quartz:UseClusteredPostgresStore=false` varsayılan). Kod hazır ama QRTZ_* şema betiği (`create_postgres_tables.sql`) metadata DB'ye uygulanmadan açılmamalı. Not: `SchedulerTickJob`'un kendi tetikleyicisi için bu artık kritik değil — gerçek iş tekilliği `JobScheduleRepository.TryClaimAsync`'teki atomik UPDATE ile zaten garanti ediliyor; bu ayar yalnızca ek bir tutarlılık katmanı.
-3. **.NET sürümü teyit edilmedi.** Mevcut ~40 mikroservisin standardına uyup uymadığı doğrulanmadan .NET 8 LTS varsayıldı (yalnızca bu makinede .NET 10 SDK kurulu, net8.0 runtime'ı hedefleyerek derleniyor).
+3. **.NET sürümü mevcut ~40 mikroservisin standardıyla teyit edilmedi.** Proje başlangıçta .NET 8 LTS varsayımıyla kuruldu, sonradan kullanıcı isteğiyle **.NET 10**'a yükseltildi (tüm projeler `net10.0`, EF Core/Npgsql 10.x). Bu makinede yalnızca .NET 10 SDK kurulu olduğu için başka bir sürüme geri dönmek gerekirse ilgili SDK'nın da kurulması gerekir.
 4. **`CdcMonitoring.IntegrationTests` projesi hâlâ boş placeholder.** Plan Testcontainers tabanlı gerçek entegrasyon testleri öneriyordu; bunun yerine yalnızca unit testler (42 adet) + `docker-compose.local.yml` ile manuel/canlı doğrulama yapıldı. İstenirse Testcontainers ile CI'da otomatik çalışacak entegrasyon testleri eklenebilir.
 5. **Helm chart gerçek bir Kubernetes cluster'ında test edilmedi** — yalnızca template/values incelemesi ve local docker-compose testi yapıldı.
 6. **Reconciliation zamanlaması "gün sayısı" tabanlı** (`ReconciliationIntervalDays`, varsayılan 7), BRD'nin "her Pazar 03:00" gibi spesifik gün/saat örneğinden farklı olarak "son çalışmadan N gün sonra" mantığıyla çalışıyor. Bilinçli bir basitleştirme (tick-tabanlı mimariyle tutarlı); spesifik gün/saat kontrolü isteniyorsa ayrı bir cron alanı eklenmeli.
@@ -66,4 +72,4 @@ Bunlar bilinçli olarak kapsam dışı bırakılmış veya gerçek ortamda henü
 - `Program.cs` fatal başlangıç hatasında process'i sıfır olmayan bir exit code ile kapatmıyor.
 - `docker-compose.local.yml` / `appsettings.Development.json`'daki düz metin dev parolaları (yalnızca local dosyalar, kapsamlı bir secret-yönetimi kararı gerektirir).
 
-**Henüz commit edilmedi** — bir sonraki oturumda önce bunu yapın.
+**Henüz commit edilmedi** (kod incelemesi + .NET 10 yükseltmesi + UI modernizasyonu) — bir sonraki oturumda önce bunu yapın.

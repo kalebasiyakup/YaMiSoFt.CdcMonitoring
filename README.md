@@ -50,8 +50,8 @@ Dört arka plan işi (bağlantı health check, CDC keşfi, alarm değerlendirme,
 
 ## Teknoloji Yığını
 
-- .NET 8, Blazor Server (Interactive Server render mode)
-- EF Core 8 + Npgsql (kendi metadata şeması) — izlenen örneklere ise ham Npgsql ile salt-okuma bağlanılır
+- .NET 10, Blazor Server (Interactive Server render mode)
+- EF Core 10 + Npgsql (kendi metadata şeması) — izlenen örneklere ise ham Npgsql ile salt-okuma bağlanılır
 - Quartz.NET (opsiyonel clustered PostgreSQL job store, NFR-05)
 - ASP.NET Core Data Protection (parola/SMTP şifreleme)
 - MailKit (SMTP e-posta gönderimi)

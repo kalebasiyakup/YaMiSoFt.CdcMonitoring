@@ -8,7 +8,8 @@
     top: 0.5rem;
     right: 1rem;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.75rem rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.75rem rgba(255, 255, 255, 0.08);
 }
 
 .navbar-toggler:checked {
@@ -16,22 +17,27 @@
 }
 
 .top-row {
-    height: 3.5rem;
-    background-color: rgba(0,0,0,0.4);
+    height: 3.75rem;
+    background-color: rgba(0, 0, 0, 0.15);
+    padding-left: 1.25rem;
 }
 
 .navbar-brand {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #fff;
 }
 
 .bi {
     display: inline-block;
     position: relative;
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1.15rem;
+    height: 1.15rem;
     margin-right: 0.75rem;
     top: -1px;
     background-size: cover;
+    opacity: 0.85;
 }
 
 .bi-house-door-fill-nav-menu {
@@ -47,12 +53,12 @@
 }
 
 .nav-item {
-    font-size: 0.9rem;
-    padding-bottom: 0.5rem;
+    font-size: 0.875rem;
+    padding: 0 0.75rem 0.3rem;
 }
 
     .nav-item:first-of-type {
-        padding-top: 1rem;
+        padding-top: 1.25rem;
     }
 
     .nav-item:last-of-type {
@@ -60,25 +66,32 @@
     }
 
     .nav-item ::deep .nav-link {
-        color: #d7d7d7;
+        color: #b8bdd4;
         background: none;
         border: none;
-        border-radius: 4px;
-        height: 3rem;
+        border-radius: 8px;
+        height: 2.75rem;
         display: flex;
         align-items: center;
-        line-height: 3rem;
+        line-height: 2.75rem;
         width: 100%;
+        padding-left: 0.75rem;
+        transition: background-color .12s ease, color .12s ease;
     }
 
 .nav-item ::deep a.active {
-    background-color: rgba(255,255,255,0.37);
-    color: white;
+    background-color: var(--color-primary, #3b5bdb);
+    color: #fff;
+    font-weight: 500;
 }
 
+    .nav-item ::deep a.active .bi {
+        opacity: 1;
+    }
+
 .nav-item ::deep .nav-link:hover {
-    background-color: rgba(255,255,255,0.1);
-    color: white;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #fff;
 }
 
 .nav-scrollable {
@@ -99,7 +112,7 @@
         display: block;
 
         /* Allow sidebar to scroll for tall menus */
-        height: calc(100vh - 3.5rem);
+        height: calc(100vh - 3.75rem);
         overflow-y: auto;
     }
 }

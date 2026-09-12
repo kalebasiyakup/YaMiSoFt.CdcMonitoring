@@ -42,7 +42,7 @@ public static class DependencyInjection
         if (!string.IsNullOrWhiteSpace(certPath))
         {
             dataProtectionBuilder.ProtectKeysWithCertificate(
-                new System.Security.Cryptography.X509Certificates.X509Certificate2(certPath, certPassword));
+                System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadPkcs12FromFile(certPath, certPassword));
         }
         else
         {
