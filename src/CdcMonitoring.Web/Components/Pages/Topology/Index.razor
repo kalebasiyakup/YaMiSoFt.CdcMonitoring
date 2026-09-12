@@ -14,7 +14,7 @@
     <span class="badge bg-success">Sağlıklı</span>
     <span class="badge bg-warning text-dark">Uyarı</span>
     <span class="badge bg-danger">Kritik</span>
-    <span class="badge bg-secondary">Disabled / bilinmiyor</span>
+    <span class="badge bg-secondary">Devre dışı / bilinmiyor</span>
     — her @_refreshIntervalSeconds sn'de bir otomatik güncellenir.
 </p>
 
@@ -135,8 +135,8 @@
 
         if (health is not null)
         {
-            lines.Add($"Subscription durumu: {health.SubscriptionState}");
-            lines.Add($"Slot aktif: {health.SlotActive}");
+            lines.Add($"Subscription durumu: {SubscriptionStateText(health.SubscriptionState)}");
+            lines.Add($"Slot aktif: {(health.SlotActive ? "Evet" : "Hayır")}");
             if (health.WalStatus is not null) lines.Add($"WAL durumu: {health.WalStatus}");
             if (health.LagBytes is not null) lines.Add($"Lag: {health.LagBytes:N0} byte");
             if (health.LastSyncAt is not null) lines.Add($"Son senkronizasyon: {health.LastSyncAt:u}");
@@ -144,6 +144,14 @@
 
         return string.Join("\n", lines);
     }
+
+    private static string SubscriptionStateText(SubscriptionState state) => state switch
+    {
+        SubscriptionState.Enabled => "Etkin",
+        SubscriptionState.Disabled => "Devre dışı",
+        SubscriptionState.Error => "Hata",
+        _ => "Bilinmiyor"
+    };
 
     public async ValueTask DisposeAsync()
     {

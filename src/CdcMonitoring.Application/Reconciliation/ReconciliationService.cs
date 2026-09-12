@@ -47,17 +47,17 @@ public class ReconciliationService(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Reconciliation başarısız: ilişki {RelationshipId} ({SlotName})", r.Id, r.SlotName);
+                logger.LogError(ex, "Veri tutarlılık kontrolü başarısız: ilişki {RelationshipId} ({SlotName})", r.Id, r.SlotName);
             }
         }
 
         if (mismatchSummaries.Count > 0)
         {
-            var body = "Haftalık reconciliation'da aşağıdaki ilişkilerde tutarsızlık bulundu:\n\n" +
+            var body = "Haftalık veri tutarlılık kontrolünde aşağıdaki ilişkilerde tutarsızlık bulundu:\n\n" +
                        string.Join("\n\n", mismatchSummaries);
 
             await emailNotifier.SendReportAsync(
-                "CDC Monitoring — Haftalık Reconciliation Raporu (tutarsızlık bulundu)", body, ct);
+                "CDC Monitoring — Haftalık Veri Tutarlılık Kontrolü Raporu (tutarsızlık bulundu)", body, ct);
         }
     }
 

@@ -2,11 +2,11 @@
 @rendermode InteractiveServer
 @inject ReconciliationQueryService ReconciliationQuery
 
-<PageTitle>Reconciliation</PageTitle>
+<PageTitle>Veri Tutarlılık Kontrolü</PageTitle>
 
-<h1>Reconciliation</h1>
+<h1>Veri Tutarlılık Kontrolü</h1>
 
-<p><em>Onaylanmış (Confirmed/Manual) CDC ilişkileri için haftalık kaynak-hedef satır sayısı/checksum karşılaştırması — salt-okuma.</em></p>
+<p><em>Onaylanmış (Onaylandı/Manuel tanımlandı) CDC ilişkileri için haftalık kaynak-hedef satır sayısı/checksum karşılaştırması — salt-okuma.</em></p>
 
 @if (_results is null)
 {
@@ -14,7 +14,7 @@
 }
 else if (_results.Count == 0)
 {
-    <p><em>Henüz reconciliation çalışmadı.</em></p>
+    <p><em>Henüz veri tutarlılık kontrolü çalışmadı.</em></p>
 }
 else
 {

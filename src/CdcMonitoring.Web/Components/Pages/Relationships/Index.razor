@@ -119,8 +119,8 @@ else
         var (badgeClass, text) = health.SubscriptionState switch
         {
             SubscriptionState.Enabled when health.SlotActive => ("bg-success", "Sağlıklı"),
-            SubscriptionState.Disabled => ("bg-secondary", "Disabled"),
-            SubscriptionState.Error => ("bg-danger", "Error"),
+            SubscriptionState.Disabled => ("bg-secondary", "Devre dışı"),
+            SubscriptionState.Error => ("bg-danger", "Hata"),
             _ => ("bg-warning text-dark", "Uyarı")
         };
 

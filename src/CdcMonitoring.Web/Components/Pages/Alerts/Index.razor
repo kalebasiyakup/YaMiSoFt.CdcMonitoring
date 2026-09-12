@@ -35,7 +35,7 @@ else
             @foreach (var a in _alerts)
             {
                 <tr class="@(a.ResolvedAt is null ? "table-warning" : "")">
-                    <td>@a.Type</td>
+                    <td>@TypeText(a.Type)</td>
                     <td>@SeverityBadge(a.Severity)</td>
                     <td>@(a.ConnectionName ?? a.RelationshipLabel ?? "-")</td>
                     <td>@a.Message</td>
@@ -55,6 +55,17 @@ else
     {
         _alerts = await AlertQuery.GetRecentAsync();
     }
+
+    private static string TypeText(AlertType type) => type switch
+    {
+        AlertType.SlotInactive => "Slot İnaktif",
+        AlertType.WalCritical => "WAL Kritik",
+        AlertType.SubscriptionError => "Subscription Hatası",
+        AlertType.LagWarning => "Lag Uyarısı",
+        AlertType.HealthCheckFailed => "Health Check Başarısız",
+        AlertType.ReconciliationMismatch => "Veri Tutarsızlığı",
+        _ => type.ToString()
+    };
 
     private static MarkupString SeverityBadge(AlertSeverity severity)
     {

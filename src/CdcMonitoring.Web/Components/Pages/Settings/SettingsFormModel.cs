@@ -4,26 +4,39 @@ namespace CdcMonitoring.Web.Components.Pages.Settings;
 
 public class SettingsFormModel
 {
-    [Range(5, 3600)] public int HealthCheckIntervalSeconds { get; set; }
-    [Range(1, 100)] public int HealthCheckMaxDegreeOfParallelism { get; set; }
-    [Range(1, 60)] public int HealthCheckTimeoutSeconds { get; set; }
+    [Range(5, 3600, ErrorMessage = "Aralık 5-3600 sn arasında olmalıdır.")]
+    public int HealthCheckIntervalSeconds { get; set; }
+    [Range(1, 100, ErrorMessage = "Paralellik 1-100 arasında olmalıdır.")]
+    public int HealthCheckMaxDegreeOfParallelism { get; set; }
+    [Range(1, 60, ErrorMessage = "Zaman aşımı 1-60 sn arasında olmalıdır.")]
+    public int HealthCheckTimeoutSeconds { get; set; }
 
-    [Range(5, 3600)] public int DiscoveryIntervalSeconds { get; set; }
-    [Range(1, 100)] public int DiscoveryMaxDegreeOfParallelism { get; set; }
-    [Range(1, 60)] public int DiscoveryTimeoutSeconds { get; set; }
+    [Range(5, 3600, ErrorMessage = "Aralık 5-3600 sn arasında olmalıdır.")]
+    public int DiscoveryIntervalSeconds { get; set; }
+    [Range(1, 100, ErrorMessage = "Paralellik 1-100 arasında olmalıdır.")]
+    public int DiscoveryMaxDegreeOfParallelism { get; set; }
+    [Range(1, 60, ErrorMessage = "Zaman aşımı 1-60 sn arasında olmalıdır.")]
+    public int DiscoveryTimeoutSeconds { get; set; }
 
-    [Range(5, 3600)] public int AlertingIntervalSeconds { get; set; }
-    [Range(1, 1440)] public int SlotInactiveMinutes { get; set; }
-    [Range(1, 1440)] public int LagWarningSustainedMinutes { get; set; }
-    [Range(0, long.MaxValue)] public long LagWarningBytes { get; set; }
-    [Range(1, 20)] public int ConsecutiveHealthCheckFailures { get; set; }
+    [Range(5, 3600, ErrorMessage = "Aralık 5-3600 sn arasında olmalıdır.")]
+    public int AlertingIntervalSeconds { get; set; }
+    [Range(1, 1440, ErrorMessage = "Eşik 1-1440 dk arasında olmalıdır.")]
+    public int SlotInactiveMinutes { get; set; }
+    [Range(1, 1440, ErrorMessage = "Eşik 1-1440 dk arasında olmalıdır.")]
+    public int LagWarningSustainedMinutes { get; set; }
+    [Range(0, long.MaxValue, ErrorMessage = "Lag eşiği 0 veya üzeri olmalıdır.")]
+    public long LagWarningBytes { get; set; }
+    [Range(1, 20, ErrorMessage = "Hata sayısı 1-20 arasında olmalıdır.")]
+    public int ConsecutiveHealthCheckFailures { get; set; }
     public string HealthyWalStatuses { get; set; } = string.Empty;
 
-    [Range(1, 365)] public int ReconciliationIntervalDays { get; set; }
+    [Range(1, 365, ErrorMessage = "Sıklık 1-365 gün arasında olmalıdır.")]
+    public int ReconciliationIntervalDays { get; set; }
 
     public bool EmailEnabled { get; set; }
     public string SmtpHost { get; set; } = string.Empty;
-    [Range(1, 65535)] public int SmtpPort { get; set; } = 587;
+    [Range(1, 65535, ErrorMessage = "Port 1-65535 aralığında olmalıdır.")]
+    public int SmtpPort { get; set; } = 587;
     public bool SmtpUseStartTls { get; set; } = true;
     public string? SmtpUsername { get; set; }
     public string? NewSmtpPassword { get; set; }
