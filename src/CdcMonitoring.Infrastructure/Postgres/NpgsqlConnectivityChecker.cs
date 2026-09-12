@@ -21,6 +21,8 @@ public class NpgsqlConnectivityChecker : IPostgresConnectivityChecker
             Database = connection.DatabaseName,
             Username = connection.Username,
             Password = plaintextPassword,
+            SslMode = PgSslModeMapper.ToNpgsql(connection.SslMode),
+            TrustServerCertificate = connection.TrustServerCertificate,
             // Npgsql'in kendi bağlantı/komut zaman aşımı burada sabitlenmez: gerçek üst sınır
             // çağıranın (ConnectionHealthCheckService) SystemSettings.HealthCheckTimeoutSeconds'tan
             // türettiği ve conn.OpenAsync/ExecuteScalarAsync'e geçirdiği CancellationToken'dır.

@@ -36,6 +36,19 @@
         <InputText type="password" class="form-control" @bind-Value="_model.Password" />
     </div>
     <div class="mb-3">
+        <label class="form-label">SSL Modu</label>
+        <InputSelect class="form-select" @bind-Value="_model.SslMode">
+            @foreach (var mode in Enum.GetValues<PgSslMode>())
+            {
+                <option value="@mode">@mode</option>
+            }
+        </InputSelect>
+    </div>
+    <div class="mb-3 form-check">
+        <InputCheckbox class="form-check-input" @bind-Value="_model.TrustServerCertificate" id="trustCert" />
+        <label class="form-check-label" for="trustCert">Sunucu sertifikasına güven (yalnızca Require modunda, kendi-imzalı sertifikalar için)</label>
+    </div>
+    <div class="mb-3">
         <label class="form-label">Ortam / DC Etiketi</label>
         <InputText class="form-control" @bind-Value="_model.EnvironmentTag" placeholder="ör. Prod-DC1" />
     </div>
@@ -44,9 +57,23 @@
         <InputTextArea class="form-control" @bind-Value="_model.Description" />
     </div>
 
+    <button type="button" class="btn btn-outline-secondary" disabled="@_isTesting" @onclick="TestConnectionAsync">
+        @(_isTesting ? "Test ediliyor..." : "Bağlantıyı Test Et")
+    </button>
     <button type="submit" class="btn btn-primary">Kaydet</button>
     <a class="btn btn-secondary" href="connections">Vazgeç</a>
 </EditForm>
+
+@if (_testResult is { IsUp: true })
+{
+    <div class="alert alert-success mt-3">
+        Bağlantı başarılı (@_testResult.LatencyMs?.ToString("0") ms) — @_testResult.PostgresVersion
+    </div>
+}
+else if (_testResult is { IsUp: false })
+{
+    <div class="alert alert-danger mt-3">Bağlantı başarısız: @_testResult.ErrorMessage</div>
+}
 
 @if (_errorMessage is not null)
 {
@@ -56,6 +83,42 @@
 @code {
     private readonly ConnectionFormModel _model = new();
     private string? _errorMessage;
+    private ConnectivityCheckResult? _testResult;
+    private bool _isTesting;
+
+    private async Task TestConnectionAsync()
+    {
+        _errorMessage = null;
+        _testResult = null;
+
+        if (string.IsNullOrWhiteSpace(_model.Password))
+        {
+            _errorMessage = "Test için önce parola girilmelidir.";
+            return;
+        }
+
+        _isTesting = true;
+        try
+        {
+            _testResult = await Registry.TestConnectionAsync(new TestConnectionRequest(
+                _model.Host,
+                _model.Port,
+                _model.DatabaseName,
+                _model.Username,
+                _model.Password,
+                _model.SslMode,
+                _model.TrustServerCertificate,
+                ExistingConnectionId: null));
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isTesting = false;
+        }
+    }
 
     private async Task SubmitAsync()
     {
@@ -75,6 +138,8 @@
                 _model.DatabaseName,
                 _model.Username,
                 _model.Password,
+                _model.SslMode,
+                _model.TrustServerCertificate,
                 _model.EnvironmentTag,
                 _model.Description));
 

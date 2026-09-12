@@ -1,0 +1,39 @@
+services:
+  metadata-db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cdc_monitoring
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  # Gerçek bir SMTP sunucusu olmadan e-posta bildirimlerini (FR-10) doğrulamak
+  # için: Mailpit gönderilen tüm e-postaları yakalar, http://localhost:8025
+  # üzerinde bir web arayüzünde gösterir. Prod'da yerini kurumsal SMTP alır.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      metadata-db:
+        condition: service_healthy
+    environment:
+      # Yalnızca bootstrap ayarları burada kalır (DB'ye bağlanmadan önce gerekiyorlar).
+      # Health check/discovery/alerting/reconciliation/email ayarları artık DB'de
+      # (SystemSettings tablosu) saklanıyor ve /settings ekranından yönetiliyor —
+      # local testte oradan mailpit:1025'i, kısa interval'leri vb. gir.
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__MetadataDb: "Host=metadata-db;Port=5432;Database=cdc_monitoring;Username=postgres;Password=postgres"
+    ports:
+      - "5299:8080"

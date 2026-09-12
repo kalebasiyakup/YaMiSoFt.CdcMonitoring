@@ -1,3 +1,5 @@
+using CdcMonitoring.Domain.Enums;
+
 namespace CdcMonitoring.Domain.Entities;
 
 public class PgConnection
@@ -9,6 +11,11 @@ public class PgConnection
     public required string DatabaseName { get; set; }
     public required string Username { get; set; }
     public required string EncryptedPassword { get; set; }
+    public PgSslMode SslMode { get; set; } = PgSslMode.Prefer;
+    // Yalnızca SslMode=Require ile anlamlıdır: Npgsql, Require altında sunucu sertifikasını
+    // doğrulamaz; bu bayrak kendi-imzalı sertifikalı iç ağ PostgreSQL örnekleri için TrustServerCertificate'i
+    // açar (VerifyCA/VerifyFull zaten her koşulda doğrulama yapar, bu bayraktan etkilenmez).
+    public bool TrustServerCertificate { get; set; }
     public required string EnvironmentTag { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;

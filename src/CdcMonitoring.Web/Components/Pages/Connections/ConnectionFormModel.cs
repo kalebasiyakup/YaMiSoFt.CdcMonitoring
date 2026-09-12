@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using CdcMonitoring.Domain.Enums;
 
 namespace CdcMonitoring.Web.Components.Pages.Connections;
 
@@ -24,6 +25,10 @@ public class ConnectionFormModel
     public string Username { get; set; } = string.Empty;
 
     public string? Password { get; set; }
+
+    public PgSslMode SslMode { get; set; } = PgSslMode.Prefer;
+
+    public bool TrustServerCertificate { get; set; }
 
     [Required(ErrorMessage = "Ortam/DC etiketi zorunludur.")]
     [MaxLength(100, ErrorMessage = "Ortam/DC etiketi en fazla 100 karakter olabilir.")]

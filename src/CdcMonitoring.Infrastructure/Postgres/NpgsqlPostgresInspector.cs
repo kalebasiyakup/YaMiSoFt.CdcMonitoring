@@ -187,6 +187,8 @@ public class NpgsqlPostgresInspector : IPostgresInspector
             Database = connection.DatabaseName,
             Username = connection.Username,
             Password = plaintextPassword,
+            SslMode = PgSslModeMapper.ToNpgsql(connection.SslMode),
+            TrustServerCertificate = connection.TrustServerCertificate,
             // CdcDiscoveryService, DiscoveryTimeoutSeconds'tan türettiği bir CancellationToken
             // geçirir; burada sabit düşük bir bağlantı/komut zaman aşımı olsaydı, admin'in
             // ayarladığı daha uzun bir değer sessizce görmezden gelinirdi. ReconciliationService

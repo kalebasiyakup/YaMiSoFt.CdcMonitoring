@@ -14,6 +14,7 @@ public class PgConnectionConfiguration : IEntityTypeConfiguration<PgConnection>
         builder.Property(c => c.DatabaseName).HasMaxLength(200).IsRequired();
         builder.Property(c => c.Username).HasMaxLength(200).IsRequired();
         builder.Property(c => c.EncryptedPassword).IsRequired();
+        builder.Property(c => c.SslMode).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(c => c.EnvironmentTag).HasMaxLength(100).IsRequired();
         builder.Property(c => c.Description).HasMaxLength(1000);
         builder.Property(c => c.CreatedBy).HasMaxLength(200).IsRequired();

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CdcMonitoring.Application.Abstractions;
+using CdcMonitoring.Application.Common;
 using CdcMonitoring.Domain.Entities;
 using CdcMonitoring.Domain.Enums;
 
@@ -9,6 +10,7 @@ public class ConnectionRegistryService(
     IPgConnectionRepository connections,
     IAuditLogRepository auditLog,
     IConnectionPasswordProtector passwordProtector,
+    IPostgresConnectivityChecker connectivityChecker,
     ICurrentUserAccessor currentUser,
     IClock clock)
 {
@@ -41,6 +43,8 @@ public class ConnectionRegistryService(
             DatabaseName = request.DatabaseName,
             Username = request.Username,
             EncryptedPassword = passwordProtector.Protect(request.PlaintextPassword),
+            SslMode = request.SslMode,
+            TrustServerCertificate = request.TrustServerCertificate,
             EnvironmentTag = request.EnvironmentTag,
             Description = request.Description,
             IsActive = true,
@@ -73,6 +77,8 @@ public class ConnectionRegistryService(
         connection.Port = request.Port;
         connection.DatabaseName = request.DatabaseName;
         connection.Username = request.Username;
+        connection.SslMode = request.SslMode;
+        connection.TrustServerCertificate = request.TrustServerCertificate;
         connection.EnvironmentTag = request.EnvironmentTag;
         connection.Description = request.Description;
         connection.IsActive = request.IsActive;
@@ -87,6 +93,45 @@ public class ConnectionRegistryService(
         await WriteAuditAsync(connection.Id, AuditAction.Updated, actor, now, before, ToAuditSnapshot(connection), ct);
 
         return ToSummary(connection);
+    }
+
+    // FR-03: kayıt yapılmadan önce (Create ekranı) ya da mevcut bir bağlantının parolası
+    // değiştirilmeden (Edit ekranı) bağlanabilirliği doğrulamak için. Kalıcı hiçbir kayıt oluşturmaz.
+    public async Task<ConnectivityCheckResult> TestConnectionAsync(TestConnectionRequest request, CancellationToken ct = default)
+    {
+        string password;
+        if (!string.IsNullOrWhiteSpace(request.PlaintextPassword))
+        {
+            password = request.PlaintextPassword;
+        }
+        else if (request.ExistingConnectionId is { } existingId)
+        {
+            var existing = await connections.GetByIdAsync(existingId, ct)
+                ?? throw new KeyNotFoundException($"Bağlantı bulunamadı: {existingId}");
+            password = passwordProtector.Unprotect(existing.EncryptedPassword);
+        }
+        else
+        {
+            throw new InvalidOperationException("Test için parola girilmelidir.");
+        }
+
+        var probe = new PgConnection
+        {
+            Id = Guid.Empty,
+            Name = "connection-test-probe",
+            Host = request.Host,
+            Port = request.Port,
+            DatabaseName = request.DatabaseName,
+            Username = request.Username,
+            EncryptedPassword = string.Empty,
+            SslMode = request.SslMode,
+            TrustServerCertificate = request.TrustServerCertificate,
+            EnvironmentTag = "test",
+            CreatedAt = clock.UtcNow,
+            CreatedBy = currentUser.GetCurrentUserNameOrDefault()
+        };
+
+        return await connectivityChecker.CheckAsync(probe, password, ct);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
@@ -128,6 +173,8 @@ public class ConnectionRegistryService(
         connection.Port,
         connection.DatabaseName,
         connection.Username,
+        connection.SslMode,
+        connection.TrustServerCertificate,
         connection.EnvironmentTag,
         connection.Description,
         connection.IsActive
@@ -140,6 +187,8 @@ public class ConnectionRegistryService(
         connection.Port,
         connection.DatabaseName,
         connection.Username,
+        connection.SslMode,
+        connection.TrustServerCertificate,
         connection.EnvironmentTag,
         connection.Description,
         connection.IsActive,

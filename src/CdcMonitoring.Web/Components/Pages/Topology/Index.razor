@@ -1,6 +1,5 @@
 @page "/topology"
 @rendermode InteractiveServer
-@using CdcMonitoring.Domain.Enums
 @implements IAsyncDisposable
 @inject CdcRelationshipManagementService Management
 @inject ConnectionRegistryService Registry
@@ -81,77 +80,32 @@
             })
             .ToList();
 
-        var edges = relationships
-            .Where(r => r.Status != CdcRelationshipStatus.Rejected)
-            .Select(r => new
+        var edges = TopologyGraphBuilder.BuildEdges(relationships)
+            .Select(e => new
             {
-                from = r.SourceConnectionId,
-                to = r.TargetConnectionId,
-                label = EdgeLabel(r),
-                color = new { color = EdgeColor(r) },
-                title = EdgeTooltip(r)
+                id = e.Id,
+                from = e.From,
+                to = e.To,
+                label = e.Label,
+                width = e.Width,
+                color = new { color = e.Color },
+                title = e.Title,
+                relationships = e.Relationships.Select(r => new
+                {
+                    publication = r.PublicationName,
+                    subscription = r.SubscriptionName,
+                    slot = r.SlotName,
+                    status = r.StatusText,
+                    health = r.HealthText,
+                    lag = r.LagBytes,
+                    color = r.Color
+                }).ToList()
             })
             .ToList();
 
         if (_module is not null)
             await _module.InvokeVoidAsync("render", "topology-canvas", nodes, edges);
     }
-
-    private static string EdgeLabel(CdcRelationshipSummary r) =>
-        r.LatestHealth?.LagBytes is { } lag ? $"{r.SlotName}\n{lag:N0}B lag" : r.SlotName;
-
-    private static string EdgeColor(CdcRelationshipSummary r)
-    {
-        var health = r.LatestHealth;
-        if (health is null) return "#adb5bd";
-
-        return health.SubscriptionState switch
-        {
-            SubscriptionState.Enabled when health.SlotActive => "#28a745",
-            SubscriptionState.Disabled => "#6c757d",
-            SubscriptionState.Error => "#dc3545",
-            _ => "#ffc107"
-        };
-    }
-
-    private static string EdgeTooltip(CdcRelationshipSummary r)
-    {
-        var health = r.LatestHealth;
-        var statusText = r.Status switch
-        {
-            CdcRelationshipStatus.Inferred => "Keşfedildi (onay bekliyor)",
-            CdcRelationshipStatus.Confirmed => "Onaylandı",
-            CdcRelationshipStatus.Manual => "Manuel tanımlandı",
-            _ => r.Status.ToString()
-        };
-
-        var lines = new List<string>
-        {
-            $"Publication: {r.PublicationName}",
-            $"Subscription: {r.SubscriptionName}",
-            $"Slot: {r.SlotName}",
-            $"Kayıt durumu: {statusText}"
-        };
-
-        if (health is not null)
-        {
-            lines.Add($"Subscription durumu: {SubscriptionStateText(health.SubscriptionState)}");
-            lines.Add($"Slot aktif: {(health.SlotActive ? "Evet" : "Hayır")}");
-            if (health.WalStatus is not null) lines.Add($"WAL durumu: {health.WalStatus}");
-            if (health.LagBytes is not null) lines.Add($"Lag: {health.LagBytes:N0} byte");
-            if (health.LastSyncAt is not null) lines.Add($"Son senkronizasyon: {health.LastSyncAt:u}");
-        }
-
-        return string.Join("\n", lines);
-    }
-
-    private static string SubscriptionStateText(SubscriptionState state) => state switch
-    {
-        SubscriptionState.Enabled => "Etkin",
-        SubscriptionState.Disabled => "Devre dışı",
-        SubscriptionState.Error => "Hata",
-        _ => "Bilinmiyor"
-    };
 
     public async ValueTask DisposeAsync()
     {
