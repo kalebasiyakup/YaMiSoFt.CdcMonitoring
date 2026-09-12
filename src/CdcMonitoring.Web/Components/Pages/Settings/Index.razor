@@ -18,127 +18,155 @@ else
         <DataAnnotationsValidator />
         <ValidationSummary />
 
-        <h3>Bağlantı Health Check</h3>
-        <div class="row mb-3">
-            <div class="col-md-4">
-                <label class="form-label">Aralık (sn)</label>
-                <InputNumber class="form-control" @bind-Value="_model.HealthCheckIntervalSeconds" />
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Paralellik</label>
-                <InputNumber class="form-control" @bind-Value="_model.HealthCheckMaxDegreeOfParallelism" />
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Zaman Aşımı (sn)</label>
-                <InputNumber class="form-control" @bind-Value="_model.HealthCheckTimeoutSeconds" />
-            </div>
-        </div>
+        <ul class="nav nav-tabs settings-tabs mb-4">
+            <li class="nav-item">
+                <button type="button" class="nav-link @(_activeTab == "healthcheck" ? "active" : "")" @onclick='() => _activeTab = "healthcheck"'>Bağlantı Health Check</button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link @(_activeTab == "discovery" ? "active" : "")" @onclick='() => _activeTab = "discovery"'>CDC Keşfi</button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link @(_activeTab == "alerts" ? "active" : "")" @onclick='() => _activeTab = "alerts"'>Alarm Eşikleri</button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link @(_activeTab == "reconciliation" ? "active" : "")" @onclick='() => _activeTab = "reconciliation"'>Veri Tutarlılık Kontrolü</button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link @(_activeTab == "email" ? "active" : "")" @onclick='() => _activeTab = "email"'>E-posta (SMTP)</button>
+            </li>
+        </ul>
 
-        <h3>CDC Keşfi</h3>
-        <div class="row mb-3">
-            <div class="col-md-4">
-                <label class="form-label">Aralık (sn)</label>
-                <InputNumber class="form-control" @bind-Value="_model.DiscoveryIntervalSeconds" />
+        @if (_activeTab == "healthcheck")
+        {
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Aralık (sn)</label>
+                    <InputNumber class="form-control" @bind-Value="_model.HealthCheckIntervalSeconds" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Paralellik</label>
+                    <InputNumber class="form-control" @bind-Value="_model.HealthCheckMaxDegreeOfParallelism" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Zaman Aşımı (sn)</label>
+                    <InputNumber class="form-control" @bind-Value="_model.HealthCheckTimeoutSeconds" />
+                </div>
             </div>
-            <div class="col-md-4">
-                <label class="form-label">Paralellik</label>
-                <InputNumber class="form-control" @bind-Value="_model.DiscoveryMaxDegreeOfParallelism" />
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Zaman Aşımı (sn)</label>
-                <InputNumber class="form-control" @bind-Value="_model.DiscoveryTimeoutSeconds" />
-            </div>
-        </div>
+        }
 
-        <h3>Alarm Eşikleri (§8)</h3>
-        <div class="row mb-3">
-            <div class="col-md-3">
-                <label class="form-label">Değerlendirme Aralığı (sn)</label>
-                <InputNumber class="form-control" @bind-Value="_model.AlertingIntervalSeconds" />
+        @if (_activeTab == "discovery")
+        {
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Aralık (sn)</label>
+                    <InputNumber class="form-control" @bind-Value="_model.DiscoveryIntervalSeconds" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Paralellik</label>
+                    <InputNumber class="form-control" @bind-Value="_model.DiscoveryMaxDegreeOfParallelism" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Zaman Aşımı (sn)</label>
+                    <InputNumber class="form-control" @bind-Value="_model.DiscoveryTimeoutSeconds" />
+                </div>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Slot İnaktif Eşiği (dk)</label>
-                <InputNumber class="form-control" @bind-Value="_model.SlotInactiveMinutes" />
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Lag Süreklilik Eşiği (dk)</label>
-                <InputNumber class="form-control" @bind-Value="_model.LagWarningSustainedMinutes" />
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Lag Eşiği (byte)</label>
-                <InputNumber class="form-control" @bind-Value="_model.LagWarningBytes" />
-            </div>
-        </div>
-        <div class="row mb-3">
-            <div class="col-md-4">
-                <label class="form-label">Ardışık Health Check Hata Sayısı</label>
-                <InputNumber class="form-control" @bind-Value="_model.ConsecutiveHealthCheckFailures" />
-            </div>
-            <div class="col-md-8">
-                <label class="form-label">Sağlıklı WAL Durumları (virgülle ayrılmış)</label>
-                <InputText class="form-control" @bind-Value="_model.HealthyWalStatuses" placeholder="reserved,extended" />
-            </div>
-        </div>
+        }
 
-        <h3>Veri Tutarlılık Kontrolü (FR-11)</h3>
-        <div class="row mb-3">
-            <div class="col-md-4">
-                <label class="form-label">Çalışma Sıklığı (gün)</label>
-                <InputNumber class="form-control" @bind-Value="_model.ReconciliationIntervalDays" />
+        @if (_activeTab == "alerts")
+        {
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Değerlendirme Aralığı (sn)</label>
+                    <InputNumber class="form-control" @bind-Value="_model.AlertingIntervalSeconds" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Slot İnaktif Eşiği (dk)</label>
+                    <InputNumber class="form-control" @bind-Value="_model.SlotInactiveMinutes" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Lag Süreklilik Eşiği (dk)</label>
+                    <InputNumber class="form-control" @bind-Value="_model.LagWarningSustainedMinutes" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Lag Eşiği (byte)</label>
+                    <InputNumber class="form-control" @bind-Value="_model.LagWarningBytes" />
+                </div>
             </div>
-        </div>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Ardışık Health Check Hata Sayısı</label>
+                    <InputNumber class="form-control" @bind-Value="_model.ConsecutiveHealthCheckFailures" />
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Sağlıklı WAL Durumları (virgülle ayrılmış)</label>
+                    <InputText class="form-control" @bind-Value="_model.HealthyWalStatuses" placeholder="reserved,extended" />
+                </div>
+            </div>
+        }
 
-        <h3>E-posta (SMTP) — FR-10</h3>
-        <div class="mb-3 form-check">
-            <InputCheckbox class="form-check-input" @bind-Value="_model.EmailEnabled" id="emailEnabled" />
-            <label class="form-check-label" for="emailEnabled">E-posta bildirimleri aktif</label>
-        </div>
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <label class="form-label">SMTP Sunucu</label>
-                <InputText class="form-control" @bind-Value="_model.SmtpHost" />
+        @if (_activeTab == "reconciliation")
+        {
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Çalışma Sıklığı (gün)</label>
+                    <InputNumber class="form-control" @bind-Value="_model.ReconciliationIntervalDays" />
+                </div>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Port</label>
-                <InputNumber class="form-control" @bind-Value="_model.SmtpPort" />
-            </div>
-            <div class="col-md-3 form-check mt-4">
-                <InputCheckbox class="form-check-input" @bind-Value="_model.SmtpUseStartTls" id="startTls" />
-                <label class="form-check-label" for="startTls">StartTLS kullan</label>
-            </div>
-        </div>
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <label class="form-label">SMTP Kullanıcı Adı</label>
-                <InputText class="form-control" @bind-Value="_model.SmtpUsername" />
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">
-                    Yeni SMTP Parolası
-                    @if (_model.HasSmtpPassword)
-                    {
-                        <span class="text-muted">(parola ayarlı — boş bırakılırsa korunur)</span>
-                    }
-                </label>
-                <InputText type="password" class="form-control" @bind-Value="_model.NewSmtpPassword" />
-            </div>
-        </div>
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <label class="form-label">Gönderen Adres</label>
-                <InputText class="form-control" @bind-Value="_model.FromAddress" />
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Gönderen Görünen Ad</label>
-                <InputText class="form-control" @bind-Value="_model.FromDisplayName" />
-            </div>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Alıcılar (virgülle ayrılmış e-posta listesi)</label>
-            <InputText class="form-control" @bind-Value="_model.Recipients" placeholder="dba-oncall@etr.internal,ops@etr.internal" />
-        </div>
+        }
 
-        <button type="submit" class="btn btn-primary">Kaydet</button>
+        @if (_activeTab == "email")
+        {
+            <div class="mb-3 form-check">
+                <InputCheckbox class="form-check-input" @bind-Value="_model.EmailEnabled" id="emailEnabled" />
+                <label class="form-check-label" for="emailEnabled">E-posta bildirimleri aktif</label>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">SMTP Sunucu</label>
+                    <InputText class="form-control" @bind-Value="_model.SmtpHost" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Port</label>
+                    <InputNumber class="form-control" @bind-Value="_model.SmtpPort" />
+                </div>
+                <div class="col-md-3 form-check mt-4">
+                    <InputCheckbox class="form-check-input" @bind-Value="_model.SmtpUseStartTls" id="startTls" />
+                    <label class="form-check-label" for="startTls">StartTLS kullan</label>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">SMTP Kullanıcı Adı</label>
+                    <InputText class="form-control" @bind-Value="_model.SmtpUsername" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">
+                        Yeni SMTP Parolası
+                        @if (_model.HasSmtpPassword)
+                        {
+                            <span class="text-muted">(parola ayarlı — boş bırakılırsa korunur)</span>
+                        }
+                    </label>
+                    <InputText type="password" class="form-control" @bind-Value="_model.NewSmtpPassword" />
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Gönderen Adres</label>
+                    <InputText class="form-control" @bind-Value="_model.FromAddress" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Gönderen Görünen Ad</label>
+                    <InputText class="form-control" @bind-Value="_model.FromDisplayName" />
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Alıcılar (virgülle ayrılmış e-posta listesi)</label>
+                <InputText class="form-control" @bind-Value="_model.Recipients" placeholder="dba-oncall@etr.internal,ops@etr.internal" />
+            </div>
+        }
+
+        <button type="submit" class="btn btn-primary mt-2">Kaydet</button>
 
         @if (_savedAt is not null)
         {
@@ -156,6 +184,7 @@ else
     private SettingsFormModel? _model;
     private string? _errorMessage;
     private DateTimeOffset? _savedAt;
+    private string _activeTab = "healthcheck";
 
     protected override async Task OnInitializedAsync()
     {

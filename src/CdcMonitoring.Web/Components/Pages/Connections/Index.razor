@@ -3,9 +3,9 @@
 @inject ConnectionRegistryService Registry
 @inject NavigationManager Nav
 
-<PageTitle>Bağlantı Defteri</PageTitle>
+<PageTitle>Bağlantılar</PageTitle>
 
-<h1>Bağlantı Defteri</h1>
+<h1>Bağlantılar</h1>
 
 <p><a class="btn btn-primary" href="connections/new">+ Yeni Bağlantı</a></p>
 
@@ -37,18 +37,26 @@ else
                     <td>@c.Host:@c.Port / @c.DatabaseName</td>
                     <td>@c.EnvironmentTag</td>
                     <td>@(c.IsActive ? "Aktif" : "Pasif")</td>
-                    <td>
-                        <a href="@($"connections/{c.Id}/edit")">Düzenle</a>
+                    <td class="text-nowrap">
+                        <a class="btn-icon" href="@($"connections/{c.Id}/edit")" title="Düzenle" aria-label="Düzenle">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><polygon points="10,1 14,5 5,14 1,15 2,11" /></svg>
+                        </a>
                         @if (_confirmingDeleteId == c.Id)
                         {
-                            <span> — Silinsin mi?
+                            <span> Silinsin mi?
                                 <button class="btn btn-sm btn-danger" @onclick="() => DeleteAsync(c.Id)">Evet, sil</button>
                                 <button class="btn btn-sm btn-secondary" @onclick="() => _confirmingDeleteId = null">Vazgeç</button>
                             </span>
                         }
                         else
                         {
-                            <button class="btn btn-sm btn-link text-danger" @onclick="() => _confirmingDeleteId = c.Id">Sil</button>
+                            <button class="btn-icon btn-icon-danger" @onclick="() => _confirmingDeleteId = c.Id" title="Sil" aria-label="Sil">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                                    <rect x="3" y="5" width="10" height="9" rx="1" />
+                                    <rect x="2" y="3" width="12" height="2" rx="1" />
+                                    <rect x="6" y="1" width="4" height="2" rx="1" />
+                                </svg>
+                            </button>
                         }
                     </td>
                 </tr>

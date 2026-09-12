@@ -109,6 +109,30 @@ a, .btn-link {
     border-radius: var(--radius-sm);
 }
 
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background-color .12s ease, color .12s ease;
+}
+
+    .btn-icon:hover {
+        background-color: var(--color-primary-soft);
+        color: var(--color-primary);
+    }
+
+.btn-icon-danger:hover {
+    background-color: #fef2f2;
+    color: var(--color-danger);
+}
+
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus, .form-select:focus {
     box-shadow: 0 0 0 0.2rem var(--color-primary-soft);
     border-color: var(--color-primary);
@@ -203,6 +227,36 @@ a, .btn-link {
 .text-muted {
     color: var(--color-text-muted) !important;
 }
+
+/* Sekmeler (Ayarlar sayfası) */
+.nav-tabs {
+    border-bottom: 1px solid var(--color-border);
+    gap: 0.25rem;
+}
+
+    .nav-tabs .nav-link {
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        color: var(--color-text-muted);
+        font-weight: 500;
+        font-size: 0.9rem;
+        padding: 0.65rem 0.25rem;
+        margin-right: 1.25rem;
+        background: transparent;
+        transition: color .12s ease, border-color .12s ease;
+    }
+
+        .nav-tabs .nav-link:hover {
+            color: var(--color-text);
+            border-color: var(--color-border);
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--color-primary);
+            border-color: var(--color-primary);
+            background: transparent;
+        }
 
 h1:focus {
     outline: none;
