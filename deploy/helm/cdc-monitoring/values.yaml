@@ -27,9 +27,12 @@ metadataDb:
   connectionStringSecretKey: connectionString
 
 # Data Protection anahtar zincirini koruyan sertifika (K8s Secret).
+# certificatePasswordSecretKey, aynı Secret içinde pfx'in parolasını tutan anahtardır —
+# pfx parolalıysa bu olmadan sertifika yüklenemez ve anahtar zinciri korumasız kalır.
 dataProtection:
   certificateSecretName: cdc-monitoring-dataprotection-cert
   certificateSecretKey: tls.pfx
+  certificatePasswordSecretKey: password
 
 quartz:
   useClusteredPostgresStore: true

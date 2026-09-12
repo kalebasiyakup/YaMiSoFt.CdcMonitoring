@@ -34,6 +34,11 @@ spec:
               value: {{ .Values.quartz.useClusteredPostgresStore | quote }}
             - name: DataProtection__CertificatePath
               value: /etc/cdc-monitoring/dataprotection/{{ .Values.dataProtection.certificateSecretKey }}
+            - name: DataProtection__CertificatePassword
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dataProtection.certificateSecretName }}
+                  key: {{ .Values.dataProtection.certificatePasswordSecretKey }}
           volumeMounts:
             - name: dataprotection-cert
               mountPath: /etc/cdc-monitoring/dataprotection

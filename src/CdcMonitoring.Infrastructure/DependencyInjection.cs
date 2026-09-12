@@ -44,6 +44,21 @@ public static class DependencyInjection
             dataProtectionBuilder.ProtectKeysWithCertificate(
                 new System.Security.Cryptography.X509Certificates.X509Certificate2(certPath, certPassword));
         }
+        else
+        {
+            // Sertifika yoksa Data Protection anahtar zinciri, PgConnection/SystemSettings
+            // şifreli parolalarıyla AYNI metadata veritabanında korumasız (veya yalnızca
+            // platforma özgü, container'lar için geçerli olmayan bir mekanizmayla) saklanır —
+            // bu, o parolaların şifrelenmesini fiilen anlamsız kılar. Production'da bunu
+            // sessizce kabul etmek yerine erken ve net biçimde başarısız oluyoruz.
+            var environmentName = configuration["ASPNETCORE_ENVIRONMENT"] ?? configuration["DOTNET_ENVIRONMENT"];
+            if (string.Equals(environmentName, "Production", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "DataProtection:CertificatePath yapılandırılmalı. Aksi halde bağlantı/SMTP parolalarını " +
+                    "koruyan Data Protection anahtar zinciri, aynı metadata veritabanında sertifikasız saklanır.");
+            }
+        }
 
         services.AddHttpContextAccessor();
 

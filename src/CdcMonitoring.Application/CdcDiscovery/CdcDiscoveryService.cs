@@ -27,6 +27,12 @@ public class CdcDiscoveryService(
         var slotsByConnection = new ConcurrentDictionary<Guid, List<ReplicationSlotInfo>>();
         var subsByConnection = new ConcurrentDictionary<Guid, List<SubscriptionInfo>>();
         var subStatsByConnection = new ConcurrentDictionary<Guid, List<SubscriptionStatInfo>>();
+        // Bir bağlantı için üç sorgunun da (slot/subscription/subscription stat) başarıyla
+        // tamamlandığını izler. Kısmi bir toplama hatası (ör. stats sorgusu zaman aşımına
+        // uğrarsa) aksi halde "slot inaktif" veya "subscription error" gibi yanlış alarmlara
+        // yol açar (bkz. AlertEvaluationService) — bu yüzden eksik veri "sağlıksız" yerine
+        // "bu döngüde bilinmiyor" olarak ele alınır.
+        var succeededConnections = new ConcurrentDictionary<Guid, bool>();
 
         using var throttle = new SemaphoreSlim(Math.Max(1, settings.DiscoveryMaxDegreeOfParallelism));
         var collectTasks = active.Select(async connection =>
@@ -34,7 +40,7 @@ public class CdcDiscoveryService(
             await throttle.WaitAsync(ct);
             try
             {
-                await CollectAsync(connection, settings.DiscoveryTimeoutSeconds, slotsByConnection, subsByConnection, subStatsByConnection, ct);
+                await CollectAsync(connection, settings.DiscoveryTimeoutSeconds, slotsByConnection, subsByConnection, subStatsByConnection, succeededConnections, ct);
             }
             catch (Exception ex)
             {
@@ -54,7 +60,7 @@ public class CdcDiscoveryService(
 
             foreach (var sub in subs)
             {
-                await MatchAndPersistAsync(active, target, sub, slotsByConnection, subStatsByConnection, ct);
+                await MatchAndPersistAsync(active, target, sub, slotsByConnection, subStatsByConnection, succeededConnections, ct);
             }
         }
 
@@ -68,6 +74,7 @@ public class CdcDiscoveryService(
         ConcurrentDictionary<Guid, List<ReplicationSlotInfo>> slotsByConnection,
         ConcurrentDictionary<Guid, List<SubscriptionInfo>> subsByConnection,
         ConcurrentDictionary<Guid, List<SubscriptionStatInfo>> subStatsByConnection,
+        ConcurrentDictionary<Guid, bool> succeededConnections,
         CancellationToken ct)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -78,6 +85,7 @@ public class CdcDiscoveryService(
         slotsByConnection[connection.Id] = await inspector.GetReplicationSlotsAsync(connection, plaintextPassword, timeoutCts.Token);
         subsByConnection[connection.Id] = await inspector.GetSubscriptionsAsync(connection, plaintextPassword, timeoutCts.Token);
         subStatsByConnection[connection.Id] = await inspector.GetSubscriptionStatsAsync(connection, plaintextPassword, timeoutCts.Token);
+        succeededConnections[connection.Id] = true;
     }
 
     private async Task MatchAndPersistAsync(
@@ -86,6 +94,7 @@ public class CdcDiscoveryService(
         SubscriptionInfo sub,
         ConcurrentDictionary<Guid, List<ReplicationSlotInfo>> slotsByConnection,
         ConcurrentDictionary<Guid, List<SubscriptionStatInfo>> subStatsByConnection,
+        ConcurrentDictionary<Guid, bool> succeededConnections,
         CancellationToken ct)
     {
         if (string.IsNullOrEmpty(sub.SlotName))
@@ -113,6 +122,14 @@ public class CdcDiscoveryService(
             logger.LogWarning(
                 "Subscription '{Sub}' ({Target}) kayıtsız bir kaynağa işaret ediyor: {Host}:{Port}/{Db}. Bu bağlantıyı önce defterde kaydedin.",
                 sub.Name, target.Name, parsed.Host, parsed.Port, parsed.Database);
+            return;
+        }
+
+        if (!succeededConnections.ContainsKey(source.Id) || !succeededConnections.ContainsKey(target.Id))
+        {
+            logger.LogWarning(
+                "Subscription '{Sub}' ({Target}) için bu döngüde keşif verisi eksik (kaynak veya hedef sorgulanamadı); sağlık kaydı atlanıyor, son bilinen durum korunuyor.",
+                sub.Name, target.Name);
             return;
         }
 

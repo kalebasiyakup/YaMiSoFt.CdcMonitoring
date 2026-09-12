@@ -18,4 +18,11 @@ public class JobScheduleRepository(CdcMonitoringDbContext db) : IJobScheduleRepo
 
         return affected > 0;
     }
+
+    public async Task ReleaseClaimAsync(string jobName, CancellationToken ct = default)
+    {
+        await db.JobSchedules
+            .Where(j => j.JobName == jobName)
+            .ExecuteUpdateAsync(s => s.SetProperty(j => j.LastRunAt, (DateTimeOffset?)null), ct);
+    }
 }

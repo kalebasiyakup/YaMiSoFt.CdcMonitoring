@@ -1,0 +1,69 @@
+# CDC Monitoring — Proje Durumu
+
+> Bu dosya, projeye sonradan (yeni bir Claude Code oturumunda) devam edebilmek için
+> tutulur. Faz bazlı tamamlanma durumunu ve açık/kalan işleri listeler. Genel
+> proje bağlamı için `memory.md` ve `README.md`'ye, gereksinimler için
+> `CDC_Monitoring_BRD_v0.3.md`'ye bakın.
+>
+> Son güncelleme: 2026-09-12
+
+## Genel Durum
+
+BRD'nin 3 fazı da (FR-01..FR-14, NFR-01..NFR-08) uygulanmış, `docker-compose.local.yml` ile gerçek PostgreSQL logical replication ve gerçek SMTP (Mailpit) üzerinden uçtan uca canlı doğrulanmıştır. Ayrıca BRD'de olmayan iki ek iş tamamlanmıştır: tüm operasyonel ayarların DB+UI'a taşınması ve UI'daki İngilizce metinlerin Türkçeleştirilmesi.
+
+**Kod incelemesi tamamlandı** (`/code-review high --fix`, ~17 dk sürdü, 172 tool-call, 9 finder agent). 10 gerçek bulgu buldu ve hepsini düzeltti; 2 aday bulguyu (vis-network üzerinden XSS iddiası, `ConsecutiveHealthCheckFailures=0` senaryosu) inceleyip yanlış olduğunu kanıtlayarak gereksiz değişiklik yapmadı. `dotnet build` (0 hata) ve `dotnet test` (42/42) bu oturumda ayrıca doğrulandı. **Henüz commit edilmedi** — `git status`/`git diff` ile gözden geçirip commit etmek bir sonraki oturumun ilk işi olmalı.
+
+## Faz Durumu
+
+| Faz | Kapsam | Durum |
+|---|---|---|
+| Faz 1 | Bağlantı Kayıt Defteri (CRUD, şifreli parola, health check, temel Prometheus metrikleri, Helm iskeleti) | ✅ Tamamlandı, canlı doğrulandı |
+| Faz 2 | CDC İlişki Keşfi + Topoloji ekranı | ✅ Tamamlandı, gerçek logical replication ile doğrulandı |
+| Faz 3 | E-posta bildirimleri (alarm eşikleri) + Veri Tutarlılık Kontrolü (reconciliation) | ✅ Tamamlandı, gerçek SMTP (Mailpit) ile doğrulandı |
+| Ek-1 | Tüm operasyonel ayarların (appsettings.json → DB + `/settings` UI) taşınması, tick-tabanlı zamanlama, çoklu replika güvenli claim mekanizması | ✅ Tamamlandı, çoklu replika testiyle doğrulandı |
+| Ek-2 | UI'daki İngilizce metinlerin Türkçeleştirilmesi | ✅ Tamamlandı |
+| Ek-3 | Genel kod incelemesi (`/code-review high --fix`) | ✅ Tamamlandı, 10 bulgu düzeltildi — **commit edilmedi** |
+
+## Mimari Özet
+
+Katmanlı çözüm: `CdcMonitoring.Domain` / `.Application` / `.Infrastructure` / `.Web` (Blazor Server). Dört arka plan işi (health check, CDC keşfi, alarm değerlendirme, veri tutarlılık kontrolü) tek bir `SchedulerTickJob`'da birleşti; her işin gerçek çalışma sıklığı `SystemSettings` tablosundan okunur, çalıştırma hakkı `JobSchedules` tablosunda atomik bir koşullu `UPDATE` ile "claim" edilir (NFR-05, çoklu replika güvenliği). Ayrıntılar için `README.md`.
+
+## Bilinen Açık Konular / Kalan İşler
+
+Bunlar bilinçli olarak kapsam dışı bırakılmış veya gerçek ortamda henüz doğrulanmamış konulardır — BRD'yi ihlal etmez, ama üretime almadan önce netleştirilmeli:
+
+1. **OIDC/SSO entegrasyonu yok (NFR-03).** `ICurrentUserAccessor` altyapısı hazır (`HttpContextCurrentUserAccessor`), ama gerçek bir IdP'ye bağlanmadı — audit loglarında kullanıcı adı yerine "system" görünüyor. Kurumsal IdP detayları (endpoint, client tipi) netleşince ASP.NET Core OIDC middleware eklenmeli.
+2. **Quartz clustered Postgres job store kapalı** (`Quartz:UseClusteredPostgresStore=false` varsayılan). Kod hazır ama QRTZ_* şema betiği (`create_postgres_tables.sql`) metadata DB'ye uygulanmadan açılmamalı. Not: `SchedulerTickJob`'un kendi tetikleyicisi için bu artık kritik değil — gerçek iş tekilliği `JobScheduleRepository.TryClaimAsync`'teki atomik UPDATE ile zaten garanti ediliyor; bu ayar yalnızca ek bir tutarlılık katmanı.
+3. **.NET sürümü teyit edilmedi.** Mevcut ~40 mikroservisin standardına uyup uymadığı doğrulanmadan .NET 8 LTS varsayıldı (yalnızca bu makinede .NET 10 SDK kurulu, net8.0 runtime'ı hedefleyerek derleniyor).
+4. **`CdcMonitoring.IntegrationTests` projesi hâlâ boş placeholder.** Plan Testcontainers tabanlı gerçek entegrasyon testleri öneriyordu; bunun yerine yalnızca unit testler (42 adet) + `docker-compose.local.yml` ile manuel/canlı doğrulama yapıldı. İstenirse Testcontainers ile CI'da otomatik çalışacak entegrasyon testleri eklenebilir.
+5. **Helm chart gerçek bir Kubernetes cluster'ında test edilmedi** — yalnızca template/values incelemesi ve local docker-compose testi yapıldı.
+6. **Reconciliation zamanlaması "gün sayısı" tabanlı** (`ReconciliationIntervalDays`, varsayılan 7), BRD'nin "her Pazar 03:00" gibi spesifik gün/saat örneğinden farklı olarak "son çalışmadan N gün sonra" mantığıyla çalışıyor. Bilinçli bir basitleştirme (tick-tabanlı mimariyle tutarlı); spesifik gün/saat kontrolü isteniyorsa ayrı bir cron alanı eklenmeli.
+7. **Reconciliation sonuçları ilişki başına tek satırda birleştiriliyor** (tablo bazlı değil) — çok tablolu publication'larda UI'da yalnızca özet metin (`Details` alanı) görünüyor, tablo bazlı ayrı satır/grafik yok.
+8. **Alarm çözüldüğünde ayrı bir "resolved" e-postası gönderilmiyor** — bilinçli tasarım kararı (BRD yalnızca tetikleme bildirimini şart koşuyor), ama operasyonel olarak isteniyorsa eklenebilir.
+9. **K8s → dış PostgreSQL ağ erişimi ve kurumsal SMTP erişimi gerçek ortamda doğrulanmadı** (NFR-01, varsayım BRD §9'da zaten belirtilmiş) — yalnızca local docker-compose ağında test edildi.
+
+## Kod İncelemesinde Bulunup Düzeltilen 10 Bulgu
+
+1. **`ConnectionHealthCheckService`** — paralel health check task'ları aynı scoped `DbContext`'e eşzamanlı `AddAsync` çağırıyordu (thread-safe değil, "a second operation was started on this context" riski). Artık sonuçlar paralel toplanıp `Task.WhenAll` sonrası sırayla ekleniyor.
+2. **`CdcDiscoveryService`** — kısmi veri toplama hatası (ör. yalnızca subscription-stats sorgusu zaman aşımına uğrarsa) yanlışlıkla anlık "slot inaktif"/"subscription error" alarmı tetikliyordu (debounce'suz false positive). Artık eksik veri "bu döngüde bilinmiyor" sayılıp o ilişki atlanıyor.
+3. **`DependencyInjection`** — Production'da `DataProtection:CertificatePath` yapılandırılmamışsa parola şifreleme anahtarları, şifreli parolalarla aynı DB'de **korumasız** saklanabiliyordu. Artık erken ve net exception fırlatılıyor.
+4. **Helm `deployment.yaml`** — `DataProtection__CertificatePath` mount ediliyordu ama `DataProtection__CertificatePassword` hiç set edilmiyordu; parolalı gerçek bir `tls.pfx` başlangıçta patlardı. Artık aynı secret'tan okunuyor.
+5. **`ReconciliationService`** — bir ilişkinin kontrolü hata verirse sessizce loglanıp sayılmıyordu; **tüm** ilişkiler hata verirse (ör. genel bağlantı kesintisi) `mismatchSummaries` boş kalıp FR-11'in tek çıktısı olan e-posta hiç gitmiyordu. Artık hatalar da rapora dahil ediliyor.
+6. **`AlertEvaluationService`** — `LagWarning` kuralı süreklilik eşiğini **iki kez** uyguluyordu (hem geçmiş pencere filtresi hem de bildirim gecikmesi olarak) — 15 dk ayarlandığında bildirim fiilen ~30 dk'da gidiyordu. Tek gecikmeye indirildi.
+7. **`MailKitEmailNotifier`** — alıcı listesindeki tek bir hatalı e-posta adresi `MailboxAddress.Parse`'ı patlatıp **tüm** gönderimi (on-call dahil) iptal ediyordu. Artık yalnızca o alıcı atlanıp loglanıyor.
+8. **`JobScheduleRepository` / `SchedulerTickJob`** — bir job claim edildikten hemen sonra hata verirse (`LastRunAt` zaten "now" yazılmış), bir sonraki deneme tam bir interval sonrasına erteleniyordu. Artık başarısız job'un claim'i serbest bırakılıyor (`ReleaseClaimAsync`), bir sonraki 15 sn'lik tick'te tekrar denenir.
+9. **`NpgsqlConnectivityChecker`** — Npgsql'in kendi bağlantı/komut zaman aşımı 5 sn'ye sabitlenmişti, `SystemSettings.HealthCheckTimeoutSeconds` (1-60 aralığı) admin tarafından daha yüksek ayarlansa bile sessizce görmezden geliniyordu.
+10. **`NpgsqlPostgresInspector`** — aynı sorun keşif/reconciliation tarafında: sabit 10 sn Npgsql zaman aşımı, `DiscoveryTimeoutSeconds` ayarını görmezden geliyordu.
+
+**İncelenip yanlış olduğu kanıtlanan (değiştirilmeyen) 2 aday:**
+- vis-network node etiketleri üzerinden stored-XSS iddiası — kütüphane yalnızca `&lt;canvas&gt;`'a çiziyor, `innerHTML` kullanmıyor; risk yok.
+- `ConsecutiveHealthCheckFailures=0` senaryosu — migration seed'i `2`, UI da `[Range(1,20)]` ile zorluyor; `0` uygulamanın kendi yolundan asla ulaşılamaz.
+
+**Bilinçli olarak düzeltilmeyen, düşük öncelikli bulgular** (kapsam dışı bırakıldı, gerekirse ayrı ele alınmalı):
+- `NpgsqlConnectivityChecker`'da açık bir `SslMode` belirtilmemiş.
+- `PgConnection → ConnectionHealthCheck` cascade-delete, bağlantı silinince geçmiş health check kayıtlarını da siliyor.
+- `Relationships/Create.razor` kaynak=hedef aynı bağlantı olacak şekilde manuel ilişki girişine izin veriyor.
+- `Program.cs` fatal başlangıç hatasında process'i sıfır olmayan bir exit code ile kapatmıyor.
+- `docker-compose.local.yml` / `appsettings.Development.json`'daki düz metin dev parolaları (yalnızca local dosyalar, kapsamlı bir secret-yönetimi kararı gerektirir).
+
+**Henüz commit edilmedi** — bir sonraki oturumda önce bunu yapın.

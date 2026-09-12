@@ -29,9 +29,13 @@ public class ReconciliationService(
         var trusted = all.Where(r => r.Status is CdcRelationshipStatus.Confirmed or CdcRelationshipStatus.Manual).ToList();
 
         var mismatchSummaries = new List<string>();
+        var failureSummaries = new List<string>();
 
         foreach (var r in trusted)
         {
+            var sourceName = r.SourceConnection?.Name ?? r.SourceConnectionId.ToString();
+            var targetName = r.TargetConnection?.Name ?? r.TargetConnectionId.ToString();
+
             try
             {
                 var result = await ReconcileOneAsync(r, ct);
@@ -39,25 +43,31 @@ public class ReconciliationService(
                 await results.SaveChangesAsync(ct);
 
                 if (!result.IsMatch)
-                {
-                    var sourceName = r.SourceConnection?.Name ?? r.SourceConnectionId.ToString();
-                    var targetName = r.TargetConnection?.Name ?? r.TargetConnectionId.ToString();
                     mismatchSummaries.Add($"{sourceName} -> {targetName} ({r.SlotName}): {result.Details}");
-                }
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Veri tutarlılık kontrolü başarısız: ilişki {RelationshipId} ({SlotName})", r.Id, r.SlotName);
+                // Hata da mismatch gibi rapora dahil edilir: aksi halde her ilişki hata verdiğinde
+                // (ör. genel bir bağlantı kesintisinde) mismatchSummaries boş kalır ve FR-11'in tek
+                // çıktısı olan e-posta hiç gönderilmez — operatörler kontrolün tamamen başarısız
+                // olduğundan habersiz kalır.
+                failureSummaries.Add($"{sourceName} -> {targetName} ({r.SlotName}): kontrol çalıştırılamadı — {ex.Message}");
             }
         }
 
-        if (mismatchSummaries.Count > 0)
+        if (mismatchSummaries.Count > 0 || failureSummaries.Count > 0)
         {
-            var body = "Haftalık veri tutarlılık kontrolünde aşağıdaki ilişkilerde tutarsızlık bulundu:\n\n" +
-                       string.Join("\n\n", mismatchSummaries);
+            var sections = new List<string>();
+            if (mismatchSummaries.Count > 0)
+                sections.Add("Tutarsızlık bulunan ilişkiler:\n\n" + string.Join("\n\n", mismatchSummaries));
+            if (failureSummaries.Count > 0)
+                sections.Add("Kontrol edilemeyen ilişkiler (hata):\n\n" + string.Join("\n\n", failureSummaries));
+
+            var body = "Haftalık veri tutarlılık kontrolü sonucu:\n\n" + string.Join("\n\n", sections);
 
             await emailNotifier.SendReportAsync(
-                "CDC Monitoring — Haftalık Veri Tutarlılık Kontrolü Raporu (tutarsızlık bulundu)", body, ct);
+                "CDC Monitoring — Haftalık Veri Tutarlılık Kontrolü Raporu (tutarsızlık/hata bulundu)", body, ct);
         }
     }
 

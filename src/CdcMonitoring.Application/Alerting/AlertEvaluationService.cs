@@ -86,10 +86,14 @@ public class AlertEvaluationService(
             var lagConditionActive = recentHealth.Count > 0 &&
                 recentHealth.All(h => h.LagBytes is not null && h.LagBytes >= settings.LagWarningBytes);
 
+            // Sustained pencere kontrolü zaten yukarıda (since/recentHealth) uygulandı; burada
+            // requiredSustainedDuration'ı tekrar LagWarningSustainedMinutes yapmak bildirimi
+            // yanlışlıkla ~2 katı geciktirirdi (diğer kurallarla tutarsız — bkz. SlotInactive/
+            // WalCritical/SubscriptionError, onlar sustain'i yalnızca bir kez uygular).
             await EvaluateRuleAsync(
                 AlertType.LagWarning, AlertSeverity.Warning, connectionId: null, r.Id,
                 conditionActive: lagConditionActive,
-                TimeSpan.FromMinutes(settings.LagWarningSustainedMinutes),
+                TimeSpan.Zero,
                 () => $"{sourceName} -> {targetName}: slot '{r.SlotName}' lag'i {latest.LagBytes:N0} byte, {settings.LagWarningSustainedMinutes} dk'dır eşik üstünde.",
                 ct);
         }

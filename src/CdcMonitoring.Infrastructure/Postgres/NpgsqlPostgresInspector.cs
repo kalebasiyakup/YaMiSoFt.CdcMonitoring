@@ -187,8 +187,15 @@ public class NpgsqlPostgresInspector : IPostgresInspector
             Database = connection.DatabaseName,
             Username = connection.Username,
             Password = plaintextPassword,
-            Timeout = 10,
-            CommandTimeout = 10
+            // CdcDiscoveryService, DiscoveryTimeoutSeconds'tan türettiği bir CancellationToken
+            // geçirir; burada sabit düşük bir bağlantı/komut zaman aşımı olsaydı, admin'in
+            // ayarladığı daha uzun bir değer sessizce görmezden gelinirdi. ReconciliationService
+            // ise (büyük tablo checksum sorguları meşru biçimde uzun sürebileceğinden) sorgu
+            // başına bir zaman aşımı geçirmiyor; bu yüzden komut zaman aşımı burada sınırlanmaz,
+            // yalnızca bağlantı kurma adımına (Timeout) makul bir üst sınır konur — aksi halde
+            // erişilemeyen bir sunucu tüm reconciliation/discovery döngüsünü süresiz kilitleyebilir.
+            Timeout = 30,
+            CommandTimeout = 0
         };
 
         var conn = new NpgsqlConnection(builder.ConnectionString);

@@ -21,8 +21,13 @@ public class NpgsqlConnectivityChecker : IPostgresConnectivityChecker
             Database = connection.DatabaseName,
             Username = connection.Username,
             Password = plaintextPassword,
-            Timeout = 5,
-            CommandTimeout = 5
+            // Npgsql'in kendi bağlantı/komut zaman aşımı burada sabitlenmez: gerçek üst sınır
+            // çağıranın (ConnectionHealthCheckService) SystemSettings.HealthCheckTimeoutSeconds'tan
+            // türettiği ve conn.OpenAsync/ExecuteScalarAsync'e geçirdiği CancellationToken'dır.
+            // Sabit düşük bir değer burada kalsaydı, admin'in ayarladığı daha uzun bir zaman
+            // aşımı sessizce görmezden gelinirdi.
+            Timeout = 0,
+            CommandTimeout = 0
         };
 
         var stopwatch = Stopwatch.StartNew();

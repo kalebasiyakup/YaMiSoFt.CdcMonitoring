@@ -42,7 +42,24 @@ public class MailKitEmailNotifier(
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(settings.FromDisplayName, settings.FromAddress));
         foreach (var recipient in recipients)
-            message.To.Add(MailboxAddress.Parse(recipient));
+        {
+            try
+            {
+                message.To.Add(MailboxAddress.Parse(recipient));
+            }
+            catch (Exception ex)
+            {
+                // Bir alıcının adresi hatalıysa tüm listeyi değil yalnızca o alıcıyı atla —
+                // aksi halde tek bir yazım hatası kritik bir alarmın herkese ulaşmasını engeller.
+                logger.LogWarning(ex, "Geçersiz e-posta alıcısı atlanıyor: {Recipient}", recipient);
+            }
+        }
+
+        if (message.To.Count == 0)
+        {
+            logger.LogWarning("E-posta gönderimi atlandı (geçerli alıcı yok): {Subject}", subject);
+            return;
+        }
 
         message.Subject = subject;
         message.Body = new TextPart("plain") { Text = body };

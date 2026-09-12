@@ -60,6 +60,12 @@ public class SchedulerTickJob(
         catch (Exception ex)
         {
             logger.LogError(ex, "Job başarısız oldu: {JobName}", jobName);
+
+            // Claim, iş çalıştırılmadan ÖNCE alındığı için (yukarıdaki atomik UPDATE), başarısız
+            // bir çalıştırma serbest bırakılmazsa bir sonraki deneme tam bir interval sonrasına
+            // kadar ertelenir. Burada serbest bırakmak, geçici hatalardan sonra bir sonraki
+            // 15sn'lik yoklamada tekrar denenmesini sağlar.
+            await jobScheduleRepository.ReleaseClaimAsync(jobName, ct);
         }
     }
 }
