@@ -1,0 +1,112 @@
+@* Domain başına publication/subscription listesi: her ilişki kendi satırında,
+   solda publication, ortada slot/lag, sağda subscription. *@
+
+<div class="domain-tabs">
+    @foreach (var view in Views)
+    {
+        var isActive = view.ConnectionId == SelectedConnectionId;
+        <button type="button"
+                class="domain-tab @(isActive ? "active" : "")"
+                @onclick="() => SelectAsync(view.ConnectionId)">
+            <span class="domain-tab-name">@view.ConnectionName</span>
+            <span class="domain-tab-meta">@view.Published.Count yayın · @view.Subscribed.Count abonelik</span>
+        </button>
+    }
+</div>
+
+@if (Current is null)
+{
+    <p class="text-muted"><em>Görüntülenecek domain yok.</em></p>
+}
+else
+{
+    @RenderGroup($"{Current.ConnectionName} → yayınladıkları",
+                 "bu domainin publication'ları ve onlara bağlı subscription'lar",
+                 Current.Published, outgoing: true)
+
+    @RenderGroup($"{Current.ConnectionName} ← abone oldukları",
+                 "başka domainlerden bu domaine akan publication'lar",
+                 Current.Subscribed, outgoing: false)
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<DomainPubSubView> Views { get; set; } = [];
+    [Parameter] public IReadOnlyDictionary<Guid, string> EnvironmentTags { get; set; } = new Dictionary<Guid, string>();
+    [Parameter] public Guid? SelectedConnectionId { get; set; }
+    [Parameter] public EventCallback<Guid?> SelectedConnectionIdChanged { get; set; }
+
+    private DomainPubSubView? Current =>
+        Views.FirstOrDefault(v => v.ConnectionId == SelectedConnectionId) ?? Views.FirstOrDefault();
+
+    private async Task SelectAsync(Guid connectionId)
+    {
+        SelectedConnectionId = connectionId;
+        await SelectedConnectionIdChanged.InvokeAsync(connectionId);
+    }
+
+    private RenderFragment RenderGroup(string title, string subtitle, IReadOnlyList<DomainPubSubItem> items, bool outgoing) => __builder =>
+    {
+        <section class="pubsub-group">
+            <div class="pubsub-group-head">
+                <h2>@title</h2>
+                <span class="pubsub-count">@items.Count</span>
+                <span class="pubsub-group-sub">@subtitle</span>
+            </div>
+
+            @if (items.Count == 0)
+            {
+                <div class="pubsub-empty">Bu domain için kayıt yok.</div>
+            }
+            else
+            {
+                <div class="pubsub-rows">
+                    @foreach (var item in items)
+                    {
+                        <div class="pubsub-row @HealthClass(item.Health)" title="@item.StatusText — @item.HealthText">
+                            <div class="pubsub-side">
+                                <span class="pubsub-kind pubsub-kind-pub">PUBLICATION</span>
+                                <div class="pubsub-name">@item.PublicationName</div>
+                                <div class="pubsub-svc">@ServiceLabel(outgoing ? Current!.ConnectionId : item.CounterpartConnectionId,
+                                                                    outgoing ? Current!.ConnectionName : item.CounterpartName)</div>
+                            </div>
+
+                            <div class="pubsub-link">
+                                <div class="pubsub-slot">@item.SlotName</div>
+                                <div class="pubsub-wire">
+                                    <span class="pubsub-dot"></span>
+                                    <span class="pubsub-line"></span>
+                                    <span class="pubsub-head"></span>
+                                </div>
+                                <div class="pubsub-lag">@LagText(item.LagBytes)</div>
+                            </div>
+
+                            <div class="pubsub-side pubsub-side-right">
+                                <span class="pubsub-kind pubsub-kind-sub">SUBSCRIPTION</span>
+                                <div class="pubsub-name">@item.SubscriptionName</div>
+                                <div class="pubsub-svc">@ServiceLabel(outgoing ? item.CounterpartConnectionId : Current!.ConnectionId,
+                                                                    outgoing ? item.CounterpartName : Current!.ConnectionName)</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    };
+
+    private string ServiceLabel(Guid connectionId, string name) =>
+        EnvironmentTags.TryGetValue(connectionId, out var env) && !string.IsNullOrWhiteSpace(env)
+            ? $"{name} · {env}"
+            : name;
+
+    private static string LagText(long? lagBytes) =>
+        lagBytes is { } lag ? $"{lag:N0} B lag" : "lag bilinmiyor";
+
+    private static string HealthClass(CdcHealthLevel health) => health switch
+    {
+        CdcHealthLevel.Healthy => "pubsub-healthy",
+        CdcHealthLevel.Warning => "pubsub-warning",
+        CdcHealthLevel.Critical => "pubsub-critical",
+        CdcHealthLevel.Disabled => "pubsub-disabled",
+        _ => "pubsub-unknown"
+    };
+}

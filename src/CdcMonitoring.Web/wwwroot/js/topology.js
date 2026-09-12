@@ -2,7 +2,7 @@ let network = null;
 let edgesDataSet = null;
 let panelEl = null;
 
-export function render(containerId, nodes, edges) {
+export function render(containerId, nodes, edges, dotNetRef) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
@@ -40,6 +40,13 @@ export function render(containerId, nodes, edges) {
     hidePanel();
 
     network.on("click", (params) => {
+        // Düğüme tıklanınca alttaki domain listesi o servise geçer.
+        if (params.nodes.length > 0) {
+            hidePanel();
+            dotNetRef?.invokeMethodAsync("OnNodeSelected", params.nodes[0]);
+            return;
+        }
+
         if (params.edges.length > 0) {
             const edge = edgesDataSet.get(params.edges[0]);
             showPanel(edge);

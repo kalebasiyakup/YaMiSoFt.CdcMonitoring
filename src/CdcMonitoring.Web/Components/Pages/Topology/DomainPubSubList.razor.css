@@ -1,0 +1,259 @@
+/* Domain sekmeleri */
+.domain-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.domain-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0.55rem 0.9rem;
+    cursor: pointer;
+    color: var(--color-text);
+    text-align: left;
+    transition: border-color .12s ease, background-color .12s ease;
+}
+
+    .domain-tab:hover {
+        border-color: var(--color-primary);
+    }
+
+    .domain-tab.active {
+        background: var(--color-primary-soft);
+        border-color: var(--color-primary);
+    }
+
+.domain-tab-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.domain-tab-meta {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+}
+
+/* Grup başlıkları */
+.pubsub-group {
+    margin-bottom: 1.75rem;
+}
+
+.pubsub-group-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 0.65rem;
+}
+
+    .pubsub-group-head h2 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+.pubsub-count {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background: #f3f4f6;
+    border-radius: 999px;
+    padding: 0.1rem 0.55rem;
+}
+
+.pubsub-group-sub {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+/* Satırlar */
+.pubsub-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.pubsub-row {
+    display: grid;
+    grid-template-columns: 1fr 15rem 1fr;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-success);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+@media (max-width: 800px) {
+    .pubsub-row {
+        grid-template-columns: 1fr;
+    }
+
+    .pubsub-wire {
+        display: none;
+    }
+}
+
+.pubsub-side {
+    padding: 0.7rem 0.9rem;
+    min-width: 0;
+}
+
+.pubsub-side-right {
+    text-align: right;
+}
+
+.pubsub-kind {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.3rem;
+}
+
+.pubsub-kind-pub {
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+}
+
+.pubsub-kind-sub {
+    background: #f3f4f6;
+    color: var(--color-text-muted);
+}
+
+.pubsub-name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    word-break: break-all;
+}
+
+.pubsub-svc {
+    font-size: 0.73rem;
+    color: var(--color-text-muted);
+    margin-top: 0.15rem;
+}
+
+/* Ortadaki bağlantı sütunu */
+.pubsub-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.7rem 0.6rem;
+    background: #fafbfd;
+    border-inline: 1px solid var(--color-border);
+}
+
+.pubsub-slot {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    text-align: center;
+    line-height: 1.35;
+    word-break: break-all;
+}
+
+.pubsub-wire {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    color: var(--color-success);
+}
+
+.pubsub-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+}
+
+.pubsub-line {
+    flex: 1;
+    height: 2px;
+    background: currentColor;
+}
+
+.pubsub-head {
+    width: 0;
+    height: 0;
+    flex: none;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 6px solid currentColor;
+}
+
+.pubsub-lag {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.68rem;
+    color: var(--color-text-muted);
+}
+
+/* Sağlık durumları */
+.pubsub-healthy {
+    border-left-color: var(--color-success);
+}
+
+    .pubsub-healthy .pubsub-wire {
+        color: var(--color-success);
+    }
+
+.pubsub-warning {
+    border-left-color: var(--color-warning);
+}
+
+    .pubsub-warning .pubsub-wire {
+        color: var(--color-warning);
+    }
+
+    .pubsub-warning .pubsub-lag {
+        color: var(--color-warning);
+    }
+
+.pubsub-critical {
+    border-left-color: var(--color-danger);
+}
+
+    .pubsub-critical .pubsub-wire {
+        color: var(--color-danger);
+    }
+
+    .pubsub-critical .pubsub-lag {
+        color: var(--color-danger);
+    }
+
+.pubsub-disabled {
+    border-left-color: #9ca3af;
+}
+
+    .pubsub-disabled .pubsub-wire {
+        color: #9ca3af;
+    }
+
+.pubsub-unknown {
+    border-left-color: #cbd5e1;
+}
+
+    .pubsub-unknown .pubsub-wire {
+        color: #cbd5e1;
+    }
+
+.pubsub-empty {
+    padding: 0.85rem 1rem;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    background: var(--color-surface);
+}
