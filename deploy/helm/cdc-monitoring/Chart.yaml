@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cdc-monitoring
+description: PostgreSQL CDC bağlantı kayıt defteri ve takip uygulaması (CDC-MON-2026)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

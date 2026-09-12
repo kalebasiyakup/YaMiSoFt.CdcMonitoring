@@ -1,0 +1,68 @@
+@page "/reconciliation"
+@rendermode InteractiveServer
+@inject ReconciliationQueryService ReconciliationQuery
+
+<PageTitle>Reconciliation</PageTitle>
+
+<h1>Reconciliation</h1>
+
+<p><em>Onaylanmış (Confirmed/Manual) CDC ilişkileri için haftalık kaynak-hedef satır sayısı/checksum karşılaştırması — salt-okuma.</em></p>
+
+@if (_results is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else if (_results.Count == 0)
+{
+    <p><em>Henüz reconciliation çalışmadı.</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Kaynak</th>
+                <th>Hedef</th>
+                <th>Slot</th>
+                <th>Çalışma Zamanı</th>
+                <th>Kaynak Satır</th>
+                <th>Hedef Satır</th>
+                <th>Durum</th>
+                <th>Detay</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in _results)
+            {
+                <tr class="@(r.IsMatch ? "" : "table-danger")">
+                    <td>@r.SourceConnectionName</td>
+                    <td>@r.TargetConnectionName</td>
+                    <td>@r.SlotName</td>
+                    <td>@r.RunAt.ToLocalTime().ToString("g")</td>
+                    <td>@(r.SourceRowCount?.ToString("N0") ?? "-")</td>
+                    <td>@(r.TargetRowCount?.ToString("N0") ?? "-")</td>
+                    <td>
+                        @if (r.IsMatch)
+                        {
+                            <span class="badge bg-success">Eşleşti</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Tutarsız</span>
+                        }
+                    </td>
+                    <td><small>@r.Details</small></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ReconciliationResultSummary>? _results;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _results = await ReconciliationQuery.GetRecentAsync();
+    }
+}

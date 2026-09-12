@@ -1,0 +1,20 @@
+CDC Monitoring uygulaması dağıtıldı.
+
+Bu chart aşağıdaki Secret'ların önceden (chart dışında, ör. sealed-secrets/Vault ile)
+oluşturulmuş olmasını bekler:
+
+1. {{ .Values.metadataDb.connectionStringSecretName }}
+   key: {{ .Values.metadataDb.connectionStringSecretKey }}
+   (kendi PostgreSQL metadata şemasına Npgsql bağlantı dizesi)
+
+2. {{ .Values.dataProtection.certificateSecretName }}
+   key: {{ .Values.dataProtection.certificateSecretKey }}
+   (Data Protection anahtar zincirini korumak için kullanılan PFX sertifika)
+
+Quartz.NET clustered job store için, metadata DB'sinde Quartz'ın QRTZ_* şema
+betiği (create_postgres_tables.sql) önceden uygulanmış olmalıdır.
+
+SMTP sunucu bilgileri, alarm eşikleri, health check/discovery/reconciliation
+sıklıkları artık chart/Secret üzerinden değil, uygulamanın /settings ekranından
+yönetilir (SystemSettings tablosu, DB'de). İlk kurulumdan sonra bir yöneticinin
+bu ekrandan kurumsal SMTP bilgilerini ve alıcı listesini girmesi gerekir.

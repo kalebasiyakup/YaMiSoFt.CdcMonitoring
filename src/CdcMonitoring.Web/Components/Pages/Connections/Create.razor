@@ -1,0 +1,88 @@
+@page "/connections/new"
+@rendermode InteractiveServer
+@inject ConnectionRegistryService Registry
+@inject NavigationManager Nav
+
+<PageTitle>Yeni Bağlantı</PageTitle>
+
+<h1>Yeni Bağlantı</h1>
+
+<EditForm Model="_model" OnValidSubmit="SubmitAsync" FormName="create-connection">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label class="form-label">Ad</label>
+        <InputText class="form-control" @bind-Value="_model.Name" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Host</label>
+        <InputText class="form-control" @bind-Value="_model.Host" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Port</label>
+        <InputNumber class="form-control" @bind-Value="_model.Port" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Veritabanı Adı</label>
+        <InputText class="form-control" @bind-Value="_model.DatabaseName" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Kullanıcı Adı (salt-okunur izleme rolü)</label>
+        <InputText class="form-control" @bind-Value="_model.Username" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Parola</label>
+        <InputText type="password" class="form-control" @bind-Value="_model.Password" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Ortam / DC Etiketi</label>
+        <InputText class="form-control" @bind-Value="_model.EnvironmentTag" placeholder="ör. Prod-DC1" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Açıklama</label>
+        <InputTextArea class="form-control" @bind-Value="_model.Description" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Kaydet</button>
+    <a class="btn btn-secondary" href="connections">Vazgeç</a>
+</EditForm>
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger mt-3">@_errorMessage</div>
+}
+
+@code {
+    private readonly ConnectionFormModel _model = new();
+    private string? _errorMessage;
+
+    private async Task SubmitAsync()
+    {
+        _errorMessage = null;
+        if (string.IsNullOrWhiteSpace(_model.Password))
+        {
+            _errorMessage = "Parola zorunludur.";
+            return;
+        }
+
+        try
+        {
+            await Registry.CreateAsync(new CreateConnectionRequest(
+                _model.Name,
+                _model.Host,
+                _model.Port,
+                _model.DatabaseName,
+                _model.Username,
+                _model.Password,
+                _model.EnvironmentTag,
+                _model.Description));
+
+            Nav.NavigateTo("connections");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+}

@@ -1,0 +1,53 @@
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">CDC Monitoring</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Ana Sayfa
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="connections">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Bağlantı Defteri
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="relationships">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> CDC İlişkileri
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="topology">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Topoloji
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="alerts">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Alarmlar
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="reconciliation">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Reconciliation
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="settings">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Ayarlar
+            </NavLink>
+        </div>
+    </nav>
+</div>

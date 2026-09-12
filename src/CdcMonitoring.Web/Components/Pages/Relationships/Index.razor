@@ -1,0 +1,130 @@
+@page "/relationships"
+@rendermode InteractiveServer
+@using CdcMonitoring.Domain.Enums
+@inject CdcRelationshipManagementService Management
+
+<PageTitle>CDC İlişkileri</PageTitle>
+
+<h1>CDC İlişkileri</h1>
+
+<p>
+    <a class="btn btn-primary" href="relationships/new">+ Manuel İlişki Tanımla</a>
+    <a class="btn btn-outline-secondary" href="topology">Topoloji Ekranı →</a>
+</p>
+
+@if (_relationships is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else if (_relationships.Count == 0)
+{
+    <p><em>Henüz keşfedilmiş veya tanımlanmış bir CDC ilişkisi yok. Bağlantı defterine kayıtlı örnekler arasında otomatik keşif periyodik olarak çalışır.</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Kaynak</th>
+                <th>Hedef</th>
+                <th>Publication / Subscription / Slot</th>
+                <th>Durum</th>
+                <th>Sağlık</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in _relationships)
+            {
+                <tr>
+                    <td>@r.SourceConnectionName</td>
+                    <td>@r.TargetConnectionName</td>
+                    <td>
+                        <small>
+                            @r.PublicationName<br />
+                            @r.SubscriptionName<br />
+                            @r.SlotName
+                        </small>
+                    </td>
+                    <td>@StatusLabel(r.Status)</td>
+                    <td>@HealthBadge(r.LatestHealth)</td>
+                    <td>
+                        @if (r.Status == CdcRelationshipStatus.Inferred)
+                        {
+                            <button class="btn btn-sm btn-success" @onclick="() => ConfirmAsync(r.Id)">Onayla</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RejectAsync(r.Id)">Reddet</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+@code {
+    private List<CdcRelationshipSummary>? _relationships;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() => _relationships = await Management.ListAsync();
+
+    private async Task ConfirmAsync(Guid id)
+    {
+        _errorMessage = null;
+        try
+        {
+            await Management.ConfirmAsync(id);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task RejectAsync(Guid id)
+    {
+        _errorMessage = null;
+        try
+        {
+            await Management.RejectAsync(id);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private static string StatusLabel(CdcRelationshipStatus status) => status switch
+    {
+        CdcRelationshipStatus.Inferred => "Keşfedildi (onay bekliyor)",
+        CdcRelationshipStatus.Confirmed => "Onaylandı",
+        CdcRelationshipStatus.Manual => "Manuel tanımlandı",
+        CdcRelationshipStatus.Rejected => "Reddedildi",
+        _ => status.ToString()
+    };
+
+    private static MarkupString HealthBadge(CdcRelationshipHealthSummary? health)
+    {
+        if (health is null)
+            return new MarkupString("<span class=\"text-muted\">henüz veri yok</span>");
+
+        var (badgeClass, text) = health.SubscriptionState switch
+        {
+            SubscriptionState.Enabled when health.SlotActive => ("bg-success", "Sağlıklı"),
+            SubscriptionState.Disabled => ("bg-secondary", "Disabled"),
+            SubscriptionState.Error => ("bg-danger", "Error"),
+            _ => ("bg-warning text-dark", "Uyarı")
+        };
+
+        var lag = health.LagBytes.HasValue ? $"{health.LagBytes:N0} byte lag" : "lag bilinmiyor";
+        return new MarkupString($"<span class=\"badge {badgeClass}\">{text}</span> <small>{lag}</small>");
+    }
+}

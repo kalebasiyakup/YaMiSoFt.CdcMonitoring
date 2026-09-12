@@ -1,0 +1,94 @@
+@page "/connections"
+@rendermode InteractiveServer
+@inject ConnectionRegistryService Registry
+@inject NavigationManager Nav
+
+<PageTitle>Bağlantı Defteri</PageTitle>
+
+<h1>Bağlantı Defteri</h1>
+
+<p><a class="btn btn-primary" href="connections/new">+ Yeni Bağlantı</a></p>
+
+@if (_connections is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else if (_connections.Count == 0)
+{
+    <p><em>Henüz kayıtlı bağlantı yok.</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Ad</th>
+                <th>Host:Port / DB</th>
+                <th>Ortam</th>
+                <th>Durum</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in _connections)
+            {
+                <tr>
+                    <td>@c.Name</td>
+                    <td>@c.Host:@c.Port / @c.DatabaseName</td>
+                    <td>@c.EnvironmentTag</td>
+                    <td>@(c.IsActive ? "Aktif" : "Pasif")</td>
+                    <td>
+                        <a href="@($"connections/{c.Id}/edit")">Düzenle</a>
+                        @if (_confirmingDeleteId == c.Id)
+                        {
+                            <span> — Silinsin mi?
+                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteAsync(c.Id)">Evet, sil</button>
+                                <button class="btn btn-sm btn-secondary" @onclick="() => _confirmingDeleteId = null">Vazgeç</button>
+                            </span>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-link text-danger" @onclick="() => _confirmingDeleteId = c.Id">Sil</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+@code {
+    private List<ConnectionSummary>? _connections;
+    private Guid? _confirmingDeleteId;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _connections = await Registry.ListAsync();
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        _errorMessage = null;
+        try
+        {
+            await Registry.DeleteAsync(id);
+            _confirmingDeleteId = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+}

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CdcMonitoring.Application/CdcMonitoring.Application.csproj" />
+    <Project Path="src/CdcMonitoring.Domain/CdcMonitoring.Domain.csproj" />
+    <Project Path="src/CdcMonitoring.Infrastructure/CdcMonitoring.Infrastructure.csproj" />
+    <Project Path="src/CdcMonitoring.Web/CdcMonitoring.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CdcMonitoring.IntegrationTests/CdcMonitoring.IntegrationTests.csproj" />
+    <Project Path="tests/CdcMonitoring.UnitTests/CdcMonitoring.UnitTests.csproj" />
+  </Folder>
+</Solution>

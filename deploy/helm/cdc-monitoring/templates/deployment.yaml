@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-cdc-monitoring
+  labels:
+    app: cdc-monitoring
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: cdc-monitoring
+  template:
+    metadata:
+      labels:
+        app: cdc-monitoring
+    spec:
+      containers:
+        - name: cdc-monitoring
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+          env:
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: ConnectionStrings__MetadataDb
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.metadataDb.connectionStringSecretName }}
+                  key: {{ .Values.metadataDb.connectionStringSecretKey }}
+            - name: Quartz__UseClusteredPostgresStore
+              value: {{ .Values.quartz.useClusteredPostgresStore | quote }}
+            - name: DataProtection__CertificatePath
+              value: /etc/cdc-monitoring/dataprotection/{{ .Values.dataProtection.certificateSecretKey }}
+          volumeMounts:
+            - name: dataprotection-cert
+              mountPath: /etc/cdc-monitoring/dataprotection
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.healthChecks.livenessPath }}
+              port: {{ .Values.service.targetPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.healthChecks.readinessPath }}
+              port: {{ .Values.service.targetPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: dataprotection-cert
+          secret:
+            secretName: {{ .Values.dataProtection.certificateSecretName }}

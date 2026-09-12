@@ -1,0 +1,113 @@
+@page "/relationships/new"
+@rendermode InteractiveServer
+@inject CdcRelationshipManagementService Management
+@inject ConnectionRegistryService Registry
+@inject NavigationManager Nav
+
+<PageTitle>Manuel CDC İlişkisi</PageTitle>
+
+<h1>Manuel CDC İlişkisi Tanımla</h1>
+
+<p><em>Bu form yalnızca uygulamanın kendi metadata kaydını oluşturur; PostgreSQL üzerinde herhangi bir publication/subscription/slot değiştirmez.</em></p>
+
+@if (_connections is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else
+{
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync" FormName="create-relationship">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label class="form-label">Kaynak Bağlantı (publication'ın olduğu instance)</label>
+            <InputSelect class="form-select" @bind-Value="_model.SourceConnectionId">
+                <option value="">-- seçin --</option>
+                @foreach (var c in _connections)
+                {
+                    <option value="@c.Id">@c.Name (@c.Host:@c.Port/@c.DatabaseName)</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Hedef Bağlantı (subscription'ın olduğu instance)</label>
+            <InputSelect class="form-select" @bind-Value="_model.TargetConnectionId">
+                <option value="">-- seçin --</option>
+                @foreach (var c in _connections)
+                {
+                    <option value="@c.Id">@c.Name (@c.Host:@c.Port/@c.DatabaseName)</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Publication Adı</label>
+            <InputText class="form-control" @bind-Value="_model.PublicationName" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Subscription Adı</label>
+            <InputText class="form-control" @bind-Value="_model.SubscriptionName" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Slot Adı</label>
+            <InputText class="form-control" @bind-Value="_model.SlotName" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Kaydet</button>
+        <a class="btn btn-secondary" href="relationships">Vazgeç</a>
+    </EditForm>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger mt-3">@_errorMessage</div>
+}
+
+@code {
+    private List<ConnectionSummary>? _connections;
+    private readonly RelationshipFormModel _model = new();
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _connections = await Registry.ListAsync();
+    }
+
+    private async Task SubmitAsync()
+    {
+        _errorMessage = null;
+
+        if (_model.SourceConnectionId is not Guid sourceId || _model.TargetConnectionId is not Guid targetId)
+        {
+            _errorMessage = "Kaynak ve hedef bağlantı seçilmelidir.";
+            return;
+        }
+
+        try
+        {
+            await Management.CreateManualAsync(new ManualRelationshipRequest(
+                sourceId, targetId, _model.PublicationName, _model.SubscriptionName, _model.SlotName));
+
+            Nav.NavigateTo("relationships");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    public class RelationshipFormModel
+    {
+        public Guid? SourceConnectionId { get; set; }
+        public Guid? TargetConnectionId { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Publication adı zorunludur.")]
+        public string PublicationName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Subscription adı zorunludur.")]
+        public string SubscriptionName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Slot adı zorunludur.")]
+        public string SlotName { get; set; } = string.Empty;
+    }
+}

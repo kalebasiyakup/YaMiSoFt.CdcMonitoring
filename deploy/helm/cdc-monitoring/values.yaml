@@ -1,0 +1,51 @@
+replicaCount: 2
+
+image:
+  repository: registry.internal.etr/cdc-monitoring
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+env:
+  ASPNETCORE_ENVIRONMENT: Production
+
+# Kendi metadata PostgreSQL şemasının bağlantı dizesi; prod'da Secret'tan gelmeli.
+metadataDb:
+  connectionStringSecretName: cdc-monitoring-metadata-db
+  connectionStringSecretKey: connectionString
+
+# Data Protection anahtar zincirini koruyan sertifika (K8s Secret).
+dataProtection:
+  certificateSecretName: cdc-monitoring-dataprotection-cert
+  certificateSecretKey: tls.pfx
+
+quartz:
+  useClusteredPostgresStore: true
+
+# Health check/CDC keşfi/alarm eşikleri (BRD §8)/reconciliation/SMTP ayarları
+# artık uygulamanın kendi veritabanında (SystemSettings tablosu) saklanıyor ve
+# /settings ekranından, yeniden başlatma gerekmeden yönetiliyor — bu chart'ta
+# ayrıca env var olarak taşınmaz. İlk kurulumda migration ile gelen makul
+# varsayılanlar kullanılır; SMTP kimlik bilgileri dahil tüm ince ayar UI'dan
+# yapılır (parola uygulama içi Data Protection ile şifreli saklanır).
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  path: /metrics
+
+healthChecks:
+  livenessPath: /healthz
+  readinessPath: /readyz

@@ -1,0 +1,69 @@
+@page "/alerts"
+@rendermode InteractiveServer
+@using CdcMonitoring.Domain.Enums
+@inject AlertQueryService AlertQuery
+
+<PageTitle>Alarmlar</PageTitle>
+
+<h1>Alarmlar</h1>
+
+<p><em>Sistem hiçbir koşulda otomatik düzeltici aksiyon almaz — burası yalnızca gözlem ve bildirim geçmişidir.</em></p>
+
+@if (_alerts is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else if (_alerts.Count == 0)
+{
+    <p><em>Henüz alarm oluşmadı.</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Tür</th>
+                <th>Önem</th>
+                <th>Kaynak</th>
+                <th>Mesaj</th>
+                <th>Tetiklendi</th>
+                <th>Bildirildi</th>
+                <th>Çözüldü</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in _alerts)
+            {
+                <tr class="@(a.ResolvedAt is null ? "table-warning" : "")">
+                    <td>@a.Type</td>
+                    <td>@SeverityBadge(a.Severity)</td>
+                    <td>@(a.ConnectionName ?? a.RelationshipLabel ?? "-")</td>
+                    <td>@a.Message</td>
+                    <td>@a.TriggeredAt.ToLocalTime().ToString("g")</td>
+                    <td>@(a.NotifiedAt?.ToLocalTime().ToString("g") ?? "-")</td>
+                    <td>@(a.ResolvedAt?.ToLocalTime().ToString("g") ?? "Aktif")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<AlertEventSummary>? _alerts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _alerts = await AlertQuery.GetRecentAsync();
+    }
+
+    private static MarkupString SeverityBadge(AlertSeverity severity)
+    {
+        var (cls, text) = severity switch
+        {
+            AlertSeverity.Critical => ("bg-danger", "Kritik"),
+            AlertSeverity.Warning => ("bg-warning text-dark", "Uyarı"),
+            _ => ("bg-info text-dark", "Bilgi")
+        };
+        return new MarkupString($"<span class=\"badge {cls}\">{text}</span>");
+    }
+}

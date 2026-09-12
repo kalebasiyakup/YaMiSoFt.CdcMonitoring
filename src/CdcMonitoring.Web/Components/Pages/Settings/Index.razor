@@ -1,0 +1,236 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject SystemSettingsService SettingsService
+
+<PageTitle>Ayarlar</PageTitle>
+
+<h1>Ayarlar</h1>
+
+<p><em>Bu sayfadaki tüm değişiklikler yeniden başlatma gerekmeden en geç ~15 sn içinde devreye girer (zamanlama ayarları bir sonraki job yoklamasında uygulanır).</em></p>
+
+@if (_model is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else
+{
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync" FormName="settings">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <h3>Bağlantı Health Check</h3>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Aralık (sn)</label>
+                <InputNumber class="form-control" @bind-Value="_model.HealthCheckIntervalSeconds" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Paralellik</label>
+                <InputNumber class="form-control" @bind-Value="_model.HealthCheckMaxDegreeOfParallelism" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Zaman Aşımı (sn)</label>
+                <InputNumber class="form-control" @bind-Value="_model.HealthCheckTimeoutSeconds" />
+            </div>
+        </div>
+
+        <h3>CDC Keşfi</h3>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Aralık (sn)</label>
+                <InputNumber class="form-control" @bind-Value="_model.DiscoveryIntervalSeconds" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Paralellik</label>
+                <InputNumber class="form-control" @bind-Value="_model.DiscoveryMaxDegreeOfParallelism" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Zaman Aşımı (sn)</label>
+                <InputNumber class="form-control" @bind-Value="_model.DiscoveryTimeoutSeconds" />
+            </div>
+        </div>
+
+        <h3>Alarm Eşikleri (§8)</h3>
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label class="form-label">Değerlendirme Aralığı (sn)</label>
+                <InputNumber class="form-control" @bind-Value="_model.AlertingIntervalSeconds" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Slot İnaktif Eşiği (dk)</label>
+                <InputNumber class="form-control" @bind-Value="_model.SlotInactiveMinutes" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Lag Süreklilik Eşiği (dk)</label>
+                <InputNumber class="form-control" @bind-Value="_model.LagWarningSustainedMinutes" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Lag Eşiği (byte)</label>
+                <InputNumber class="form-control" @bind-Value="_model.LagWarningBytes" />
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Ardışık Health Check Hata Sayısı</label>
+                <InputNumber class="form-control" @bind-Value="_model.ConsecutiveHealthCheckFailures" />
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">Sağlıklı WAL Durumları (virgülle ayrılmış)</label>
+                <InputText class="form-control" @bind-Value="_model.HealthyWalStatuses" placeholder="reserved,extended" />
+            </div>
+        </div>
+
+        <h3>Reconciliation (FR-11)</h3>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Çalışma Sıklığı (gün)</label>
+                <InputNumber class="form-control" @bind-Value="_model.ReconciliationIntervalDays" />
+            </div>
+        </div>
+
+        <h3>E-posta (SMTP) — FR-10</h3>
+        <div class="mb-3 form-check">
+            <InputCheckbox class="form-check-input" @bind-Value="_model.EmailEnabled" id="emailEnabled" />
+            <label class="form-check-label" for="emailEnabled">E-posta bildirimleri aktif</label>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">SMTP Sunucu</label>
+                <InputText class="form-control" @bind-Value="_model.SmtpHost" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Port</label>
+                <InputNumber class="form-control" @bind-Value="_model.SmtpPort" />
+            </div>
+            <div class="col-md-3 form-check mt-4">
+                <InputCheckbox class="form-check-input" @bind-Value="_model.SmtpUseStartTls" id="startTls" />
+                <label class="form-check-label" for="startTls">StartTLS kullan</label>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">SMTP Kullanıcı Adı</label>
+                <InputText class="form-control" @bind-Value="_model.SmtpUsername" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">
+                    Yeni SMTP Parolası
+                    @if (_model.HasSmtpPassword)
+                    {
+                        <span class="text-muted">(parola ayarlı — boş bırakılırsa korunur)</span>
+                    }
+                </label>
+                <InputText type="password" class="form-control" @bind-Value="_model.NewSmtpPassword" />
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Gönderen Adres</label>
+                <InputText class="form-control" @bind-Value="_model.FromAddress" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Gönderen Görünen Ad</label>
+                <InputText class="form-control" @bind-Value="_model.FromDisplayName" />
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Alıcılar (virgülle ayrılmış e-posta listesi)</label>
+            <InputText class="form-control" @bind-Value="_model.Recipients" placeholder="dba-oncall@etr.internal,ops@etr.internal" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Kaydet</button>
+
+        @if (_savedAt is not null)
+        {
+            <span class="text-success ms-3">Kaydedildi (@_savedAt.Value.ToLocalTime().ToString("T")).</span>
+        }
+    </EditForm>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger mt-3">@_errorMessage</div>
+}
+
+@code {
+    private SettingsFormModel? _model;
+    private string? _errorMessage;
+    private DateTimeOffset? _savedAt;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var dto = await SettingsService.GetAsync();
+        _model = ToFormModel(dto);
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_model is null) return;
+        _errorMessage = null;
+        _savedAt = null;
+
+        try
+        {
+            var request = new UpdateSystemSettingsRequest(
+                _model.HealthCheckIntervalSeconds,
+                _model.HealthCheckMaxDegreeOfParallelism,
+                _model.HealthCheckTimeoutSeconds,
+                _model.DiscoveryIntervalSeconds,
+                _model.DiscoveryMaxDegreeOfParallelism,
+                _model.DiscoveryTimeoutSeconds,
+                _model.AlertingIntervalSeconds,
+                _model.SlotInactiveMinutes,
+                _model.LagWarningSustainedMinutes,
+                _model.LagWarningBytes,
+                _model.ConsecutiveHealthCheckFailures,
+                SplitCsv(_model.HealthyWalStatuses),
+                _model.ReconciliationIntervalDays,
+                _model.EmailEnabled,
+                _model.SmtpHost,
+                _model.SmtpPort,
+                _model.SmtpUseStartTls,
+                _model.SmtpUsername,
+                _model.NewSmtpPassword,
+                _model.FromAddress,
+                _model.FromDisplayName,
+                SplitCsv(_model.Recipients));
+
+            var dto = await SettingsService.UpdateAsync(request);
+            _model = ToFormModel(dto);
+            _savedAt = DateTimeOffset.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private static SettingsFormModel ToFormModel(SystemSettingsDto dto) => new()
+    {
+        HealthCheckIntervalSeconds = dto.HealthCheckIntervalSeconds,
+        HealthCheckMaxDegreeOfParallelism = dto.HealthCheckMaxDegreeOfParallelism,
+        HealthCheckTimeoutSeconds = dto.HealthCheckTimeoutSeconds,
+        DiscoveryIntervalSeconds = dto.DiscoveryIntervalSeconds,
+        DiscoveryMaxDegreeOfParallelism = dto.DiscoveryMaxDegreeOfParallelism,
+        DiscoveryTimeoutSeconds = dto.DiscoveryTimeoutSeconds,
+        AlertingIntervalSeconds = dto.AlertingIntervalSeconds,
+        SlotInactiveMinutes = dto.SlotInactiveMinutes,
+        LagWarningSustainedMinutes = dto.LagWarningSustainedMinutes,
+        LagWarningBytes = dto.LagWarningBytes,
+        ConsecutiveHealthCheckFailures = dto.ConsecutiveHealthCheckFailures,
+        HealthyWalStatuses = string.Join(",", dto.HealthyWalStatuses),
+        ReconciliationIntervalDays = dto.ReconciliationIntervalDays,
+        EmailEnabled = dto.EmailEnabled,
+        SmtpHost = dto.SmtpHost,
+        SmtpPort = dto.SmtpPort,
+        SmtpUseStartTls = dto.SmtpUseStartTls,
+        SmtpUsername = dto.SmtpUsername,
+        HasSmtpPassword = dto.HasSmtpPassword,
+        FromAddress = dto.FromAddress,
+        FromDisplayName = dto.FromDisplayName,
+        Recipients = string.Join(",", dto.Recipients)
+    };
+
+    private static List<string> SplitCsv(string csv) =>
+        csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+}

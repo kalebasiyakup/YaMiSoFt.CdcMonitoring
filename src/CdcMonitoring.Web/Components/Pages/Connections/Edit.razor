@@ -1,0 +1,121 @@
+@page "/connections/{Id:guid}/edit"
+@rendermode InteractiveServer
+@inject ConnectionRegistryService Registry
+@inject NavigationManager Nav
+
+<PageTitle>Bağlantı Düzenle</PageTitle>
+
+<h1>Bağlantı Düzenle</h1>
+
+@if (_model is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else
+{
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync" FormName="edit-connection">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label class="form-label">Ad</label>
+            <InputText class="form-control" @bind-Value="_model.Name" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Host</label>
+            <InputText class="form-control" @bind-Value="_model.Host" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Port</label>
+            <InputNumber class="form-control" @bind-Value="_model.Port" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Veritabanı Adı</label>
+            <InputText class="form-control" @bind-Value="_model.DatabaseName" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Kullanıcı Adı (salt-okunur izleme rolü)</label>
+            <InputText class="form-control" @bind-Value="_model.Username" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Yeni Parola (opsiyonel — boş bırakılırsa mevcut parola korunur)</label>
+            <InputText type="password" class="form-control" @bind-Value="_model.Password" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Ortam / DC Etiketi</label>
+            <InputText class="form-control" @bind-Value="_model.EnvironmentTag" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Açıklama</label>
+            <InputTextArea class="form-control" @bind-Value="_model.Description" />
+        </div>
+        <div class="mb-3 form-check">
+            <InputCheckbox class="form-check-input" @bind-Value="_model.IsActive" id="isActive" />
+            <label class="form-check-label" for="isActive">Aktif</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Kaydet</button>
+        <a class="btn btn-secondary" href="connections">Vazgeç</a>
+    </EditForm>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger mt-3">@_errorMessage</div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ConnectionFormModel? _model;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var connection = await Registry.GetAsync(Id);
+        if (connection is null)
+        {
+            _errorMessage = "Bağlantı bulunamadı.";
+            return;
+        }
+
+        _model = new ConnectionFormModel
+        {
+            Name = connection.Name,
+            Host = connection.Host,
+            Port = connection.Port,
+            DatabaseName = connection.DatabaseName,
+            Username = connection.Username,
+            EnvironmentTag = connection.EnvironmentTag,
+            Description = connection.Description,
+            IsActive = connection.IsActive
+        };
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_model is null) return;
+        _errorMessage = null;
+
+        try
+        {
+            await Registry.UpdateAsync(new UpdateConnectionRequest(
+                Id,
+                _model.Name,
+                _model.Host,
+                _model.Port,
+                _model.DatabaseName,
+                _model.Username,
+                _model.Password,
+                _model.EnvironmentTag,
+                _model.Description,
+                _model.IsActive));
+
+            Nav.NavigateTo("connections");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+}
