@@ -1,8 +1,213 @@
 @page "/"
+@using CdcMonitoring.Application.Alerting
+@using CdcMonitoring.Application.CdcDiscovery
+@using CdcMonitoring.Application.Reconciliation
+@using CdcMonitoring.Domain.Enums
+@inject CdcMonitoring.Application.Connections.ConnectionRegistryService Registry
+@inject CdcRelationshipManagementService Management
+@inject AlertQueryService AlertQuery
+@inject ReconciliationQueryService ReconciliationQuery
 
 <PageTitle>CDC Monitoring</PageTitle>
 
-<h1>CDC Monitoring</h1>
+<h1>Ana Sayfa</h1>
+<p class="text-muted">PostgreSQL bağlantı kayıt defteri ve CDC takip uygulamasına genel bakış.</p>
 
-<p>PostgreSQL bağlantı kayıt defteri ve CDC takip uygulaması.</p>
-<p><a href="connections">Bağlantılara git →</a></p>
+@if (_loading)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else
+{
+    <div class="stat-grid">
+        <div class="stat-card">
+            <span class="stat-label">Bağlantılar</span>
+            <span class="stat-value">@_totalConnections</span>
+            <span class="stat-sub">@_activeConnections aktif</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">CDC İlişkileri</span>
+            <span class="stat-value">@_totalRelationships</span>
+            <span class="stat-sub">@(_inferredCount > 0 ? $"{_inferredCount} onay bekliyor" : "hepsi karara bağlandı")</span>
+        </div>
+        <div class="stat-card @(_openAlertsCount > 0 ? "stat-card-warning" : "")">
+            <span class="stat-label">Açık Alarmlar</span>
+            <span class="stat-value">@_openAlertsCount</span>
+            <span class="stat-sub">@(_criticalOpenCount > 0 ? $"{_criticalOpenCount} kritik" : "kritik yok")</span>
+        </div>
+        <div class="stat-card @(_lastReconciliation is { IsMatch: false } ? "stat-card-danger" : "")">
+            <span class="stat-label">Veri Tutarlılık Kontrolü</span>
+            <span class="stat-value">
+                @if (_lastReconciliation is null)
+                {
+                    <text>—</text>
+                }
+                else if (_lastReconciliation.IsMatch)
+                {
+                    <text>Eşleşti</text>
+                }
+                else
+                {
+                    <text>Tutarsız</text>
+                }
+            </span>
+            <span class="stat-sub">@(_lastReconciliation is null ? "henüz çalışmadı" : _lastReconciliation.RunAt.ToLocalTime().ToString("g"))</span>
+        </div>
+    </div>
+
+    <div class="row mt-2">
+        <div class="col-lg-5">
+            <h3 class="section-title">Sağlık Durumu</h3>
+            <div class="health-grid">
+                <div class="health-chip health-chip-success">
+                    <span class="health-chip-value">@_healthy</span>
+                    <span class="health-chip-label">Sağlıklı</span>
+                </div>
+                <div class="health-chip health-chip-warning">
+                    <span class="health-chip-value">@_warning</span>
+                    <span class="health-chip-label">Uyarı</span>
+                </div>
+                <div class="health-chip health-chip-danger">
+                    <span class="health-chip-value">@_critical</span>
+                    <span class="health-chip-label">Kritik</span>
+                </div>
+                <div class="health-chip health-chip-secondary">
+                    <span class="health-chip-value">@_unknown</span>
+                    <span class="health-chip-label">Devre dışı / bilinmiyor</span>
+                </div>
+            </div>
+
+            <h3 class="section-title mt-4">Hızlı Erişim</h3>
+            <div class="quick-actions">
+                <a class="btn btn-primary" href="connections/new">+ Yeni Bağlantı</a>
+                <a class="btn btn-secondary" href="relationships">Onay Bekleyen İlişkiler</a>
+                <a class="btn btn-secondary" href="topology">Topoloji</a>
+                <a class="btn btn-secondary" href="settings">Ayarlar</a>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <h3 class="section-title">Son Alarmlar</h3>
+            @if (_recentOpenAlerts.Count == 0)
+            {
+                <p class="text-muted"><em>Açık alarm yok.</em></p>
+            }
+            else
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Tür</th>
+                            <th>Önem</th>
+                            <th>Kaynak</th>
+                            <th>Tetiklendi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in _recentOpenAlerts)
+                        {
+                            <tr>
+                                <td>@TypeText(a.Type)</td>
+                                <td>@SeverityBadge(a.Severity)</td>
+                                <td>@(a.ConnectionName ?? a.RelationshipLabel ?? "-")</td>
+                                <td>@a.TriggeredAt.ToLocalTime().ToString("g")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <a href="alerts">Tüm alarmları gör →</a>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+
+    private int _totalConnections;
+    private int _activeConnections;
+    private int _totalRelationships;
+    private int _inferredCount;
+    private int _openAlertsCount;
+    private int _criticalOpenCount;
+    private ReconciliationResultSummary? _lastReconciliation;
+    private List<AlertEventSummary> _recentOpenAlerts = [];
+
+    private int _healthy;
+    private int _warning;
+    private int _critical;
+    private int _unknown;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Aynı Blazor circuit scope'undaki DbContext thread-safe olmadığından bu
+        // sorgular Task.WhenAll ile paralel değil, sırayla çalıştırılır.
+        var connections = await Registry.ListAsync();
+        var relationships = await Management.ListAsync();
+        var alerts = await AlertQuery.GetRecentAsync();
+        var reconciliations = await ReconciliationQuery.GetRecentAsync(1);
+
+        _totalConnections = connections.Count;
+        _activeConnections = connections.Count(c => c.IsActive);
+
+        var activeRelationships = relationships.Where(r => r.Status != CdcRelationshipStatus.Rejected).ToList();
+        _totalRelationships = relationships.Count;
+        _inferredCount = relationships.Count(r => r.Status == CdcRelationshipStatus.Inferred);
+
+        foreach (var r in activeRelationships)
+        {
+            switch (HealthBucket(r))
+            {
+                case "healthy": _healthy++; break;
+                case "warning": _warning++; break;
+                case "critical": _critical++; break;
+                default: _unknown++; break;
+            }
+        }
+
+        var openAlerts = alerts.Where(a => a.ResolvedAt is null).ToList();
+        _openAlertsCount = openAlerts.Count;
+        _criticalOpenCount = openAlerts.Count(a => a.Severity == AlertSeverity.Critical);
+        _recentOpenAlerts = openAlerts.Take(5).ToList();
+
+        _lastReconciliation = reconciliations.FirstOrDefault();
+
+        _loading = false;
+    }
+
+    private static string HealthBucket(CdcRelationshipSummary r)
+    {
+        var h = r.LatestHealth;
+        if (h is null) return "unknown";
+
+        return h.SubscriptionState switch
+        {
+            SubscriptionState.Enabled when h.SlotActive => "healthy",
+            SubscriptionState.Disabled => "unknown",
+            SubscriptionState.Error => "critical",
+            _ => "warning"
+        };
+    }
+
+    private static string TypeText(AlertType type) => type switch
+    {
+        AlertType.SlotInactive => "Slot İnaktif",
+        AlertType.WalCritical => "WAL Kritik",
+        AlertType.SubscriptionError => "Subscription Hatası",
+        AlertType.LagWarning => "Lag Uyarısı",
+        AlertType.HealthCheckFailed => "Health Check Başarısız",
+        AlertType.ReconciliationMismatch => "Veri Tutarsızlığı",
+        _ => type.ToString()
+    };
+
+    private static MarkupString SeverityBadge(AlertSeverity severity)
+    {
+        var (cls, text) = severity switch
+        {
+            AlertSeverity.Critical => ("bg-danger", "Kritik"),
+            AlertSeverity.Warning => ("bg-warning text-dark", "Uyarı"),
+            _ => ("bg-info text-dark", "Bilgi")
+        };
+        return new MarkupString($"<span class=\"badge {cls}\">{text}</span>");
+    }
+}

@@ -140,6 +140,20 @@
   için ekran görüntüsü almak veya `getComputedStyle(...).display` kontrol etmek
   gerekir**, yoksa yanlışlıkla "hata var" sanılıp gereksiz debug'a girilir (bu oturumda
   olduğu gibi).
+- **Blazor Server bileşenlerinde birden fazla Application servisini `Task.WhenAll` ile
+  "paralel" çağırmak, aynı circuit scope'undaki `DbContext`'i eşzamanlı kullanmaya
+  çalışır ve `InvalidOperationException: A second operation was started on this
+  context instance...` ile sayfayı 500'e düşürür.** Bu, kod incelemesinde
+  `ConnectionHealthCheckService` için zaten tespit edilip düzeltilmiş olan sınıfa
+  giren bir hatadır (bkz. kod inceleme bulgusu #1) — bu oturumda Ana Sayfa
+  dashboard'unu yazarken (4 servisi `Task.WhenAll` ile çağırarak) **aynı hata
+  tekrar yapıldı** ve canlı testte 500 olarak yakalandı. **Kural: bir Blazor
+  bileşeninin `@code` bloğunda birden fazla scoped Application servisi
+  çağrılıyorsa, bunlar her zaman sırayla (`await` ardışık), asla `Task.WhenAll`
+  ile paralel çağrılmamalı** — DbContext'in kendisi thread-safe değildir, aynı
+  scope'ta paralellik güvenli değildir (yalnızca gerçekten ayrı DbContext scope'ları
+  varsa, ör. arka plan job'larında `IServiceScopeFactory.CreateScope()` ile açılan
+  bağımsız scope'lar arasında paralellik güvenlidir).
 - **Chrome automation `computer` aracının `left_click`'i (hem koordinat hem `ref` ile)
   bazen bir `<button type="submit">` üzerinde tıklama olayını sayfaya iletmiyor**
   (görsel olarak buton üzerinde gibi görünse de sunucuda hiçbir istek/log oluşmuyor).

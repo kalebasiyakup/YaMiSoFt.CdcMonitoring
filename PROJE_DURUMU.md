@@ -29,6 +29,7 @@ BRD'nin 3 fazı da (FR-01..FR-14, NFR-01..NFR-08) uygulanmış, `docker-compose.
 | Ek-3 | Genel kod incelemesi (`/code-review high --fix`) | ✅ Tamamlandı, 10 bulgu düzeltildi — **commit edilmedi** |
 | Ek-4 | .NET 8 → .NET 10 yükseltmesi (TargetFramework, EF Core/Npgsql/Serilog paketleri, Dockerfile) | ✅ Tamamlandı, canlı doğrulandı — **commit edilmedi** |
 | Ek-5 | UI görsel modernizasyonu (CSS-only: renk paleti, tipografi, kart/tablo/form/badge/buton stilleri, sidebar) | ✅ Tamamlandı, tüm ana sayfalarda görsel doğrulandı — **commit edilmedi** |
+| Ek-6 | UI iyileştirmeleri: menüye özel ikonlar, Düzenle/Sil ikon butonları, Ayarlar sayfası sekmeli görünüm, "Bağlantı Defteri"→"Bağlantılar" yeniden adlandırma, Ana Sayfa dashboard'u (özet kartları, sağlık dağılımı, son alarmlar, hızlı erişim) | ✅ Tamamlandı, görsel doğrulandı — **commit edilmedi** |
 
 ## Mimari Özet
 
@@ -72,4 +73,4 @@ Bunlar bilinçli olarak kapsam dışı bırakılmış veya gerçek ortamda henü
 - `Program.cs` fatal başlangıç hatasında process'i sıfır olmayan bir exit code ile kapatmıyor.
 - `docker-compose.local.yml` / `appsettings.Development.json`'daki düz metin dev parolaları (yalnızca local dosyalar, kapsamlı bir secret-yönetimi kararı gerektirir).
 
-**Henüz commit edilmedi** (kod incelemesi + .NET 10 yükseltmesi + UI modernizasyonu) — bir sonraki oturumda önce bunu yapın.
+**Henüz commit edilmedi** (kod incelemesi + .NET 10 yükseltmesi + UI modernizasyonu + UI iyileştirmeleri/dashboard) — bir sonraki oturumda önce bunu yapın.
