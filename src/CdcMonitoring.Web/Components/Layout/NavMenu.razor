@@ -1,3 +1,6 @@
+@using System.Globalization
+@using Microsoft.AspNetCore.Components
+
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">CDC Monitoring</a>
@@ -50,4 +53,21 @@
             </NavLink>
         </div>
     </nav>
+
+    <div class="nav-item px-3 culture-switcher">
+        <div class="culture-switcher-label">Görünüm</div>
+        <div class="btn-group btn-group-sm" role="group">
+            <a class="btn btn-outline-light @(_currentCulture == "tr-TR" ? "active" : "")" href="@CultureLink("tr-TR")">TR</a>
+            <a class="btn btn-outline-light @(_currentCulture == "en-US" ? "active" : "")" href="@CultureLink("en-US")">EN</a>
+        </div>
+    </div>
 </div>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private readonly string _currentCulture = CultureInfo.CurrentCulture.Name;
+
+    private string CultureLink(string culture) =>
+        $"/culture/set?culture={Uri.EscapeDataString(culture)}&redirectUri={Uri.EscapeDataString(Nav.ToBaseRelativePath(Nav.Uri) is { Length: > 0 } path ? $"/{path}" : "/")}";
+}

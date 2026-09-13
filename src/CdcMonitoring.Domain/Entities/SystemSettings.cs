@@ -19,7 +19,7 @@ public class SystemSettings
     public int ConsecutiveHealthCheckFailures { get; set; } = 2;
     public required string HealthyWalStatusesCsv { get; set; }
 
-    public int ReconciliationIntervalDays { get; set; } = 7;
+    public int ReconciliationIntervalSeconds { get; set; } = 7 * 86400;
 
     public bool EmailEnabled { get; set; }
     public string SmtpHost { get; set; } = string.Empty;

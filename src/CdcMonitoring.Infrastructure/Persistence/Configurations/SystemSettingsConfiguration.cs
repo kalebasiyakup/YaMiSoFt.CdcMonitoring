@@ -36,7 +36,7 @@ public class SystemSettingsConfiguration : IEntityTypeConfiguration<SystemSettin
             LagWarningBytes = 50 * 1024 * 1024,
             ConsecutiveHealthCheckFailures = 2,
             HealthyWalStatusesCsv = "reserved,extended",
-            ReconciliationIntervalDays = 7,
+            ReconciliationIntervalSeconds = 7 * 86400,
             EmailEnabled = false,
             SmtpHost = string.Empty,
             SmtpPort = 587,

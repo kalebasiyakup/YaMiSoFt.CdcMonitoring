@@ -39,7 +39,7 @@ public class SystemSettingsService(
         s.LagWarningBytes = request.LagWarningBytes;
         s.ConsecutiveHealthCheckFailures = request.ConsecutiveHealthCheckFailures;
         s.HealthyWalStatusesCsv = string.Join(",", request.HealthyWalStatuses);
-        s.ReconciliationIntervalDays = request.ReconciliationIntervalDays;
+        s.ReconciliationIntervalSeconds = request.ReconciliationIntervalSeconds;
         s.EmailEnabled = request.EmailEnabled;
         s.SmtpHost = request.SmtpHost;
         s.SmtpPort = request.SmtpPort;
@@ -116,7 +116,7 @@ public class SystemSettingsService(
         s.LagWarningBytes,
         s.ConsecutiveHealthCheckFailures,
         s.HealthyWalStatusesCsv,
-        s.ReconciliationIntervalDays,
+        s.ReconciliationIntervalSeconds,
         s.EmailEnabled,
         s.SmtpHost,
         s.SmtpPort,
@@ -140,7 +140,7 @@ public class SystemSettingsService(
         s.LagWarningBytes,
         s.ConsecutiveHealthCheckFailures,
         SplitCsv(s.HealthyWalStatusesCsv),
-        s.ReconciliationIntervalDays,
+        s.ReconciliationIntervalSeconds,
         s.EmailEnabled,
         s.SmtpHost,
         s.SmtpPort,

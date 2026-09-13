@@ -11,7 +11,7 @@ public class SystemSettingsServiceTests
         var repo = new FakeSystemSettingsRepository(FakeSystemSettingsRepository.CreateDefault());
         var auditLog = new InMemoryAuditLogRepository();
         var service = new SystemSettingsService(
-            repo, new FakeSmtpPasswordProtector(), auditLog,
+            repo, new FakeSmtpPasswordProtector(), new FakeEmailNotifier(), auditLog,
             new FixedCurrentUserAccessor("yakup.kalebasi"),
             new FixedClock(DateTimeOffset.Parse("2026-09-12T10:00:00Z")));
 
@@ -31,7 +31,7 @@ public class SystemSettingsServiceTests
         LagWarningBytes: 10_000_000,
         ConsecutiveHealthCheckFailures: 3,
         HealthyWalStatuses: ["reserved"],
-        ReconciliationIntervalDays: 14,
+        ReconciliationIntervalSeconds: 14 * 86400,
         EmailEnabled: true,
         SmtpHost: "smtp.example.com",
         SmtpPort: 25,
@@ -64,7 +64,7 @@ public class SystemSettingsServiceTests
         Assert.Equal(8, updated.HealthCheckMaxDegreeOfParallelism);
         Assert.Equal(90, updated.DiscoveryIntervalSeconds);
         Assert.Equal(3, updated.SlotInactiveMinutes);
-        Assert.Equal(14, updated.ReconciliationIntervalDays);
+        Assert.Equal(14 * 86400, updated.ReconciliationIntervalSeconds);
         Assert.True(updated.EmailEnabled);
         Assert.Equal(["a@example.com", "b@example.com"], updated.Recipients);
         Assert.Equal(["reserved"], updated.HealthyWalStatuses);

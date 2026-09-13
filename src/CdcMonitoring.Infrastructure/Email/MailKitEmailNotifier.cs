@@ -58,7 +58,7 @@ public class MailKitEmailNotifier(
         {
             using var client = new SmtpClient();
             await client.ConnectAsync(request.SmtpHost, request.SmtpPort,
-                request.SmtpUseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto, ct);
+                ResolveSecureSocketOptions(request.SmtpUseStartTls, request.SmtpPort), ct);
 
             if (!string.IsNullOrWhiteSpace(request.SmtpUsername) && !string.IsNullOrEmpty(request.PlaintextPassword))
                 await client.AuthenticateAsync(request.SmtpUsername, request.PlaintextPassword, ct);
@@ -115,7 +115,7 @@ public class MailKitEmailNotifier(
 
         using var client = new SmtpClient();
         await client.ConnectAsync(settings.SmtpHost, settings.SmtpPort,
-            settings.SmtpUseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto, ct);
+            ResolveSecureSocketOptions(settings.SmtpUseStartTls, settings.SmtpPort), ct);
 
         if (!string.IsNullOrWhiteSpace(settings.SmtpUsername) && !string.IsNullOrEmpty(settings.EncryptedSmtpPassword))
         {
@@ -127,5 +127,16 @@ public class MailKitEmailNotifier(
         await client.DisconnectAsync(true, ct);
 
         logger.LogInformation("E-posta gönderildi: {Subject} ({RecipientCount} alıcı)", subject, recipients.Length);
+    }
+
+    // StartTLS kapalıyken 465/SMTPS sunucuları için (Ayarlar ekranındaki tooltip'in vaat ettiği gibi)
+    // implicit TLS'e geçilir; diğer portlarda Auto'nun sunucu bozuk/yanlış sertifika sunsa bile
+    // STARTTLS'i fırsatçı şekilde deneyip patlamasını önlemek için düz metne zorlanır.
+    private static SecureSocketOptions ResolveSecureSocketOptions(bool useStartTls, int port)
+    {
+        if (useStartTls)
+            return SecureSocketOptions.StartTls;
+
+        return port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.None;
     }
 }

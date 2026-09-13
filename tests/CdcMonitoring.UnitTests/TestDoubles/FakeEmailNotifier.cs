@@ -1,4 +1,5 @@
 using CdcMonitoring.Application.Abstractions;
+using CdcMonitoring.Application.Common;
 using CdcMonitoring.Domain.Enums;
 
 namespace CdcMonitoring.UnitTests.TestDoubles;
@@ -19,4 +20,7 @@ public class FakeEmailNotifier : IEmailNotifier
         Reports.Add((subject, body));
         return Task.CompletedTask;
     }
+
+    public Task<EmailTestResult> SendTestEmailAsync(EmailTestRequest request, CancellationToken ct = default) =>
+        Task.FromResult(new EmailTestResult(true, null));
 }

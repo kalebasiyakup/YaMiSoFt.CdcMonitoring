@@ -30,8 +30,9 @@ public class SettingsFormModel
     public int ConsecutiveHealthCheckFailures { get; set; }
     public string HealthyWalStatuses { get; set; } = string.Empty;
 
-    [Range(1, 365, ErrorMessage = "Sıklık 1-365 gün arasında olmalıdır.")]
-    public int ReconciliationIntervalDays { get; set; }
+    [Range(1, 100000, ErrorMessage = "Sıklık 1 veya üzeri olmalıdır.")]
+    public int ReconciliationIntervalValue { get; set; } = 7;
+    public ReconciliationIntervalUnit ReconciliationIntervalUnit { get; set; } = ReconciliationIntervalUnit.Days;
 
     public bool EmailEnabled { get; set; }
     public string SmtpHost { get; set; } = string.Empty;
@@ -44,4 +45,11 @@ public class SettingsFormModel
     public string FromAddress { get; set; } = string.Empty;
     public string FromDisplayName { get; set; } = string.Empty;
     public string Recipients { get; set; } = string.Empty;
+}
+
+public enum ReconciliationIntervalUnit
+{
+    Minutes,
+    Hours,
+    Days
 }

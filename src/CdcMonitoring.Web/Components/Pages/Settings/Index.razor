@@ -1,6 +1,5 @@
 @page "/settings"
 @rendermode InteractiveServer
-@using System.Globalization
 @inject SystemSettingsService SettingsService
 
 <PageTitle>Ayarlar</PageTitle>
@@ -34,9 +33,6 @@ else
             </li>
             <li class="nav-item">
                 <button type="button" class="nav-link @(_activeTab == "email" ? "active" : "")" @onclick='() => _activeTab = "email"'>E-posta (SMTP)</button>
-            </li>
-            <li class="nav-item">
-                <button type="button" class="nav-link @(_activeTab == "display" ? "active" : "")" @onclick='() => _activeTab = "display"'>Görünüm</button>
             </li>
         </ul>
 
@@ -111,9 +107,17 @@ else
         @if (_activeTab == "reconciliation")
         {
             <div class="row mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">Çalışma Sıklığı (gün) <InfoTooltip Text="Onaylanmış/manuel CDC ilişkileri için kaynak-hedef satır sayısı/checksum karşılaştırmasının kaç günde bir çalışacağı." /></label>
-                    <InputNumber class="form-control" @bind-Value="_model.ReconciliationIntervalDays" />
+                <div class="col-md-2">
+                    <label class="form-label">Çalışma Sıklığı <InfoTooltip Text="Onaylanmış/manuel CDC ilişkileri için kaynak-hedef satır sayısı/checksum karşılaştırmasının ne sıklıkla çalışacağı." /></label>
+                    <InputNumber class="form-control" @bind-Value="_model.ReconciliationIntervalValue" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <InputSelect class="form-select" @bind-Value="_model.ReconciliationIntervalUnit">
+                        <option value="@ReconciliationIntervalUnit.Minutes">Dakika</option>
+                        <option value="@ReconciliationIntervalUnit.Hours">Saat</option>
+                        <option value="@ReconciliationIntervalUnit.Days">Gün</option>
+                    </InputSelect>
                 </div>
             </div>
         }
@@ -173,25 +177,7 @@ else
             </div>
         }
 
-        @if (_activeTab == "display")
-        {
-            <div class="row mb-3">
-                <div class="col-md-8">
-                    <label class="form-label">
-                        Tarih ve saat formatı
-                        <InfoTooltip Text="Bu tercih yalnızca bu tarayıcıya özeldir (bir çerezle saklanır) — uygulamada hesap girişi olmadığından başka bir cihazda veya gizli sekmede varsayılana (Türkçe) döner." />
-                    </label>
-                    <div class="d-flex gap-2">
-                        <a class="btn btn-outline-primary @(_currentCulture == "tr-TR" ? "active" : "")" href="@CultureLink("tr-TR")">Türkçe — 13.09.2026 15:45</a>
-                        <a class="btn btn-outline-primary @(_currentCulture == "en-US" ? "active" : "")" href="@CultureLink("en-US")">English — 9/13/2026 3:45 PM</a>
-                    </div>
-                </div>
-            </div>
-        }
-        else
-        {
-            <button type="submit" class="btn btn-primary mt-2">Kaydet</button>
-        }
+        <button type="submit" class="btn btn-primary mt-2">Kaydet</button>
 
         @if (_activeTab == "email")
         {
@@ -228,10 +214,6 @@ else
     private string _activeTab = "healthcheck";
     private bool _isTestingEmail;
     private EmailTestResult? _emailTestResult;
-    private readonly string _currentCulture = CultureInfo.CurrentCulture.Name;
-
-    private static string CultureLink(string culture) =>
-        $"/culture/set?culture={Uri.EscapeDataString(culture)}&redirectUri={Uri.EscapeDataString("/settings")}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -260,7 +242,7 @@ else
                 _model.LagWarningBytes,
                 _model.ConsecutiveHealthCheckFailures,
                 SplitCsv(_model.HealthyWalStatuses),
-                _model.ReconciliationIntervalDays,
+                ToSeconds(_model.ReconciliationIntervalValue, _model.ReconciliationIntervalUnit),
                 _model.EmailEnabled,
                 _model.SmtpHost,
                 _model.SmtpPort,
@@ -324,7 +306,8 @@ else
         LagWarningBytes = dto.LagWarningBytes,
         ConsecutiveHealthCheckFailures = dto.ConsecutiveHealthCheckFailures,
         HealthyWalStatuses = string.Join(",", dto.HealthyWalStatuses),
-        ReconciliationIntervalDays = dto.ReconciliationIntervalDays,
+        ReconciliationIntervalValue = FromSeconds(dto.ReconciliationIntervalSeconds, out var reconciliationUnit),
+        ReconciliationIntervalUnit = reconciliationUnit,
         EmailEnabled = dto.EmailEnabled,
         SmtpHost = dto.SmtpHost,
         SmtpPort = dto.SmtpPort,
@@ -338,4 +321,32 @@ else
 
     private static List<string> SplitCsv(string csv) =>
         csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    private static int ToSeconds(int value, ReconciliationIntervalUnit unit) => unit switch
+    {
+        ReconciliationIntervalUnit.Minutes => value * 60,
+        ReconciliationIntervalUnit.Hours => value * 3600,
+        _ => value * 86400
+    };
+
+    // Saniyeyi, tam bölünen en büyük birime (gün > saat > dakika) çevirip geri gösterir —
+    // böylece kullanıcı "2 saat" girip kaydettiğinde tekrar açtığında "7200 saniye" ya da
+    // tuhaf bir gün kesri değil, yine "2 saat" görür.
+    private static int FromSeconds(int totalSeconds, out ReconciliationIntervalUnit unit)
+    {
+        if (totalSeconds % 86400 == 0)
+        {
+            unit = ReconciliationIntervalUnit.Days;
+            return totalSeconds / 86400;
+        }
+
+        if (totalSeconds % 3600 == 0)
+        {
+            unit = ReconciliationIntervalUnit.Hours;
+            return totalSeconds / 3600;
+        }
+
+        unit = ReconciliationIntervalUnit.Minutes;
+        return Math.Max(1, totalSeconds / 60);
+    }
 }

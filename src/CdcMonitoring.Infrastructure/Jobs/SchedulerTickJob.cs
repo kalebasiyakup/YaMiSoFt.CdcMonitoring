@@ -44,7 +44,7 @@ public class SchedulerTickJob(
         await RunIfDueAsync(JobNames.AlertEvaluation, TimeSpan.FromSeconds(settings.AlertingIntervalSeconds), now,
             () => alertEvaluationService.RunOnceAsync(ct), ct);
 
-        await RunIfDueAsync(JobNames.WeeklyReconciliation, TimeSpan.FromDays(settings.ReconciliationIntervalDays), now,
+        await RunIfDueAsync(JobNames.WeeklyReconciliation, TimeSpan.FromSeconds(settings.ReconciliationIntervalSeconds), now,
             () => reconciliationService.RunOnceAsync(ct), ct);
     }
 

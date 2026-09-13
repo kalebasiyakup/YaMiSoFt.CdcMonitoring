@@ -121,7 +121,8 @@
 }
 
 .navbar-toggler:checked ~ .nav-scrollable {
-    display: block;
+    display: flex;
+    flex-direction: column;
 }
 
 @media (min-width: 641px) {
@@ -131,10 +132,28 @@
 
     .nav-scrollable {
         /* Never collapse the sidebar for wide screens */
-        display: block;
+        display: flex;
+        flex-direction: column;
 
         /* Allow sidebar to scroll for tall menus */
         height: calc(100vh - 3.75rem);
         overflow-y: auto;
     }
+}
+
+.nav-scrollable > nav {
+    flex: 1 1 auto;
+}
+
+.culture-switcher {
+    flex: 0 0 auto;
+    padding-top: 0.75rem;
+    padding-bottom: 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.culture-switcher-label {
+    font-size: 0.75rem;
+    color: #8a8fb0;
+    margin-bottom: 0.5rem;
 }
