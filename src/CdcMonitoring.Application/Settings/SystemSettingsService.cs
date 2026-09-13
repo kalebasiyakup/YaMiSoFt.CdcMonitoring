@@ -30,6 +30,7 @@ public class SystemSettingsService(
         s.HealthCheckIntervalSeconds = request.HealthCheckIntervalSeconds;
         s.HealthCheckMaxDegreeOfParallelism = request.HealthCheckMaxDegreeOfParallelism;
         s.HealthCheckTimeoutSeconds = request.HealthCheckTimeoutSeconds;
+        s.HealthCheckRetentionDays = request.HealthCheckRetentionDays;
         s.DiscoveryIntervalSeconds = request.DiscoveryIntervalSeconds;
         s.DiscoveryMaxDegreeOfParallelism = request.DiscoveryMaxDegreeOfParallelism;
         s.DiscoveryTimeoutSeconds = request.DiscoveryTimeoutSeconds;
@@ -40,6 +41,7 @@ public class SystemSettingsService(
         s.ConsecutiveHealthCheckFailures = request.ConsecutiveHealthCheckFailures;
         s.HealthyWalStatusesCsv = string.Join(",", request.HealthyWalStatuses);
         s.ReconciliationIntervalSeconds = request.ReconciliationIntervalSeconds;
+        s.ReconciliationRetentionDays = request.ReconciliationRetentionDays;
         s.EmailEnabled = request.EmailEnabled;
         s.SmtpHost = request.SmtpHost;
         s.SmtpPort = request.SmtpPort;
@@ -107,6 +109,7 @@ public class SystemSettingsService(
         s.HealthCheckIntervalSeconds,
         s.HealthCheckMaxDegreeOfParallelism,
         s.HealthCheckTimeoutSeconds,
+        s.HealthCheckRetentionDays,
         s.DiscoveryIntervalSeconds,
         s.DiscoveryMaxDegreeOfParallelism,
         s.DiscoveryTimeoutSeconds,
@@ -117,6 +120,7 @@ public class SystemSettingsService(
         s.ConsecutiveHealthCheckFailures,
         s.HealthyWalStatusesCsv,
         s.ReconciliationIntervalSeconds,
+        s.ReconciliationRetentionDays,
         s.EmailEnabled,
         s.SmtpHost,
         s.SmtpPort,
@@ -131,6 +135,7 @@ public class SystemSettingsService(
         s.HealthCheckIntervalSeconds,
         s.HealthCheckMaxDegreeOfParallelism,
         s.HealthCheckTimeoutSeconds,
+        s.HealthCheckRetentionDays,
         s.DiscoveryIntervalSeconds,
         s.DiscoveryMaxDegreeOfParallelism,
         s.DiscoveryTimeoutSeconds,
@@ -141,6 +146,7 @@ public class SystemSettingsService(
         s.ConsecutiveHealthCheckFailures,
         SplitCsv(s.HealthyWalStatusesCsv),
         s.ReconciliationIntervalSeconds,
+        s.ReconciliationRetentionDays,
         s.EmailEnabled,
         s.SmtpHost,
         s.SmtpPort,

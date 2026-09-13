@@ -16,6 +16,7 @@ public class JobScheduleConfiguration : IEntityTypeConfiguration<JobSchedule>
             new JobSchedule { JobName = JobNames.ConnectionHealthCheck, LastRunAt = null },
             new JobSchedule { JobName = JobNames.CdcDiscovery, LastRunAt = null },
             new JobSchedule { JobName = JobNames.AlertEvaluation, LastRunAt = null },
-            new JobSchedule { JobName = JobNames.WeeklyReconciliation, LastRunAt = null });
+            new JobSchedule { JobName = JobNames.WeeklyReconciliation, LastRunAt = null },
+            new JobSchedule { JobName = JobNames.RetentionCleanup, LastRunAt = null });
     }
 }

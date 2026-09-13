@@ -24,4 +24,10 @@ public class InMemoryCdcRelationshipHealthRepository : ICdcRelationshipHealthRep
             .ToList());
 
     public Task SaveChangesAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task<int> DeleteOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default)
+    {
+        var removed = Entries.RemoveAll(e => e.CheckedAt < cutoff);
+        return Task.FromResult(removed);
+    }
 }

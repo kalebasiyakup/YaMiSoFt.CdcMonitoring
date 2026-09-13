@@ -22,6 +22,7 @@ public class SystemSettingsServiceTests
         HealthCheckIntervalSeconds: 45,
         HealthCheckMaxDegreeOfParallelism: 8,
         HealthCheckTimeoutSeconds: 6,
+        HealthCheckRetentionDays: 14,
         DiscoveryIntervalSeconds: 90,
         DiscoveryMaxDegreeOfParallelism: 4,
         DiscoveryTimeoutSeconds: 12,
@@ -32,6 +33,7 @@ public class SystemSettingsServiceTests
         ConsecutiveHealthCheckFailures: 3,
         HealthyWalStatuses: ["reserved"],
         ReconciliationIntervalSeconds: 14 * 86400,
+        ReconciliationRetentionDays: 120,
         EmailEnabled: true,
         SmtpHost: "smtp.example.com",
         SmtpPort: 25,
@@ -65,6 +67,8 @@ public class SystemSettingsServiceTests
         Assert.Equal(90, updated.DiscoveryIntervalSeconds);
         Assert.Equal(3, updated.SlotInactiveMinutes);
         Assert.Equal(14 * 86400, updated.ReconciliationIntervalSeconds);
+        Assert.Equal(14, updated.HealthCheckRetentionDays);
+        Assert.Equal(120, updated.ReconciliationRetentionDays);
         Assert.True(updated.EmailEnabled);
         Assert.Equal(["a@example.com", "b@example.com"], updated.Recipients);
         Assert.Equal(["reserved"], updated.HealthyWalStatuses);

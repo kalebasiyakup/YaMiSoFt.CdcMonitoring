@@ -52,6 +52,12 @@ else
                     <InputNumber class="form-control" @bind-Value="_model.HealthCheckTimeoutSeconds" />
                 </div>
             </div>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Kayıt Saklama Süresi (gün) <InfoTooltip Text="Bu süreden eski health check kayıtları düzenli olarak silinir (audit log bundan etkilenmez, kalıcı tutulur)." /></label>
+                    <InputNumber class="form-control" @bind-Value="_model.HealthCheckRetentionDays" />
+                </div>
+            </div>
         }
 
         @if (_activeTab == "discovery")
@@ -118,6 +124,12 @@ else
                         <option value="@ReconciliationIntervalUnit.Hours">Saat</option>
                         <option value="@ReconciliationIntervalUnit.Days">Gün</option>
                     </InputSelect>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Kayıt Saklama Süresi (gün) <InfoTooltip Text="Bu süreden eski veri tutarlılık kontrolü sonuçları düzenli olarak silinir (audit log bundan etkilenmez, kalıcı tutulur)." /></label>
+                    <InputNumber class="form-control" @bind-Value="_model.ReconciliationRetentionDays" />
                 </div>
             </div>
         }
@@ -233,6 +245,7 @@ else
                 _model.HealthCheckIntervalSeconds,
                 _model.HealthCheckMaxDegreeOfParallelism,
                 _model.HealthCheckTimeoutSeconds,
+                _model.HealthCheckRetentionDays,
                 _model.DiscoveryIntervalSeconds,
                 _model.DiscoveryMaxDegreeOfParallelism,
                 _model.DiscoveryTimeoutSeconds,
@@ -243,6 +256,7 @@ else
                 _model.ConsecutiveHealthCheckFailures,
                 SplitCsv(_model.HealthyWalStatuses),
                 ToSeconds(_model.ReconciliationIntervalValue, _model.ReconciliationIntervalUnit),
+                _model.ReconciliationRetentionDays,
                 _model.EmailEnabled,
                 _model.SmtpHost,
                 _model.SmtpPort,
@@ -297,6 +311,7 @@ else
         HealthCheckIntervalSeconds = dto.HealthCheckIntervalSeconds,
         HealthCheckMaxDegreeOfParallelism = dto.HealthCheckMaxDegreeOfParallelism,
         HealthCheckTimeoutSeconds = dto.HealthCheckTimeoutSeconds,
+        HealthCheckRetentionDays = dto.HealthCheckRetentionDays,
         DiscoveryIntervalSeconds = dto.DiscoveryIntervalSeconds,
         DiscoveryMaxDegreeOfParallelism = dto.DiscoveryMaxDegreeOfParallelism,
         DiscoveryTimeoutSeconds = dto.DiscoveryTimeoutSeconds,
@@ -308,6 +323,7 @@ else
         HealthyWalStatuses = string.Join(",", dto.HealthyWalStatuses),
         ReconciliationIntervalValue = FromSeconds(dto.ReconciliationIntervalSeconds, out var reconciliationUnit),
         ReconciliationIntervalUnit = reconciliationUnit,
+        ReconciliationRetentionDays = dto.ReconciliationRetentionDays,
         EmailEnabled = dto.EmailEnabled,
         SmtpHost = dto.SmtpHost,
         SmtpPort = dto.SmtpPort,

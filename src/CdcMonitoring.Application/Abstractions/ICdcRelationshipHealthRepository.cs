@@ -8,4 +8,7 @@ public interface ICdcRelationshipHealthRepository
     Task<CdcRelationshipHealth?> GetLatestAsync(Guid relationshipId, CancellationToken ct = default);
     Task<List<CdcRelationshipHealth>> GetSinceAsync(Guid relationshipId, DateTimeOffset since, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
+
+    // Retention temizliği (Ayarlar > Bağlantı Health Check) için: cutoff'tan eski tüm kayıtları siler.
+    Task<int> DeleteOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default);
 }

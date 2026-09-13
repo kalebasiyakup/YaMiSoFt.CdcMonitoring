@@ -10,6 +10,8 @@ public class SettingsFormModel
     public int HealthCheckMaxDegreeOfParallelism { get; set; }
     [Range(1, 60, ErrorMessage = "Zaman aşımı 1-60 sn arasında olmalıdır.")]
     public int HealthCheckTimeoutSeconds { get; set; }
+    [Range(1, 3650, ErrorMessage = "Saklama süresi 1-3650 gün arasında olmalıdır.")]
+    public int HealthCheckRetentionDays { get; set; } = 7;
 
     [Range(5, 3600, ErrorMessage = "Aralık 5-3600 sn arasında olmalıdır.")]
     public int DiscoveryIntervalSeconds { get; set; }
@@ -33,6 +35,8 @@ public class SettingsFormModel
     [Range(1, 100000, ErrorMessage = "Sıklık 1 veya üzeri olmalıdır.")]
     public int ReconciliationIntervalValue { get; set; } = 7;
     public ReconciliationIntervalUnit ReconciliationIntervalUnit { get; set; } = ReconciliationIntervalUnit.Days;
+    [Range(1, 3650, ErrorMessage = "Saklama süresi 1-3650 gün arasında olmalıdır.")]
+    public int ReconciliationRetentionDays { get; set; } = 90;
 
     public bool EmailEnabled { get; set; }
     public string SmtpHost { get; set; } = string.Empty;

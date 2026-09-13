@@ -7,6 +7,7 @@ public class SystemSettings
     public int HealthCheckIntervalSeconds { get; set; } = 30;
     public int HealthCheckMaxDegreeOfParallelism { get; set; } = 10;
     public int HealthCheckTimeoutSeconds { get; set; } = 5;
+    public int HealthCheckRetentionDays { get; set; } = 7;
 
     public int DiscoveryIntervalSeconds { get; set; } = 60;
     public int DiscoveryMaxDegreeOfParallelism { get; set; } = 5;
@@ -20,6 +21,7 @@ public class SystemSettings
     public required string HealthyWalStatusesCsv { get; set; }
 
     public int ReconciliationIntervalSeconds { get; set; } = 7 * 86400;
+    public int ReconciliationRetentionDays { get; set; } = 90;
 
     public bool EmailEnabled { get; set; }
     public string SmtpHost { get; set; } = string.Empty;

@@ -17,4 +17,10 @@ public class InMemoryReconciliationResultRepository : IReconciliationResultRepos
     }
 
     public Task SaveChangesAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task<int> DeleteOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default)
+    {
+        var removed = Results.RemoveAll(r => r.RunAt < cutoff);
+        return Task.FromResult(removed);
+    }
 }

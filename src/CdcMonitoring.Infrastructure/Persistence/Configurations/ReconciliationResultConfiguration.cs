@@ -13,5 +13,9 @@ public class ReconciliationResultConfiguration : IEntityTypeConfiguration<Reconc
         builder.Property(r => r.TargetChecksum).HasMaxLength(200);
         builder.Property(r => r.Details).HasMaxLength(4000);
         builder.HasIndex(r => new { r.RelationshipId, r.RunAt });
+
+        // Retention temizliğinin (ilişkiden bağımsız, salt RunAt < cutoff) tüm tabloyu
+        // taramadan çalışabilmesi için ayrı bir indeks.
+        builder.HasIndex(r => r.RunAt);
     }
 }

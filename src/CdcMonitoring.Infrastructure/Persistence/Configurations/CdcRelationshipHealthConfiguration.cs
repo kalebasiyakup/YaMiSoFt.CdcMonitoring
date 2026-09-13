@@ -12,5 +12,9 @@ public class CdcRelationshipHealthConfiguration : IEntityTypeConfiguration<CdcRe
         builder.Property(h => h.WalStatus).HasMaxLength(50);
         builder.Property(h => h.SubscriptionState).HasConversion<string>().HasMaxLength(20);
         builder.HasIndex(h => new { h.RelationshipId, h.CheckedAt });
+
+        // Retention temizliğinin (ilişkiden bağımsız, salt CheckedAt < cutoff) tüm tabloyu
+        // taramadan çalışabilmesi için ayrı bir indeks.
+        builder.HasIndex(h => h.CheckedAt);
     }
 }

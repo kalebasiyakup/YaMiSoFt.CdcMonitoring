@@ -3,6 +3,7 @@ using CdcMonitoring.Application.Alerting;
 using CdcMonitoring.Application.CdcDiscovery;
 using CdcMonitoring.Application.HealthChecks;
 using CdcMonitoring.Application.Reconciliation;
+using CdcMonitoring.Application.Retention;
 using Microsoft.Extensions.Logging;
 using Quartz;
 
@@ -24,10 +25,15 @@ public class SchedulerTickJob(
     CdcDiscoveryService discoveryService,
     AlertEvaluationService alertEvaluationService,
     ReconciliationService reconciliationService,
+    RetentionCleanupService retentionCleanupService,
     IClock clock,
     ILogger<SchedulerTickJob> logger) : IJob
 {
     public const string Key = "scheduler-tick";
+
+    // Retention temizliği gün bazlı saklama sürelerine göre çalıştığı için dakika/saniye
+    // hassasiyetinde bir kullanıcı ayarına ihtiyaç yok — günde bir taraması yeterli.
+    private static readonly TimeSpan RetentionCleanupInterval = TimeSpan.FromHours(24);
 
     public async Task Execute(IJobExecutionContext context)
     {
@@ -46,6 +52,9 @@ public class SchedulerTickJob(
 
         await RunIfDueAsync(JobNames.WeeklyReconciliation, TimeSpan.FromSeconds(settings.ReconciliationIntervalSeconds), now,
             () => reconciliationService.RunOnceAsync(ct), ct);
+
+        await RunIfDueAsync(JobNames.RetentionCleanup, RetentionCleanupInterval, now,
+            () => retentionCleanupService.RunOnceAsync(ct), ct);
     }
 
     private async Task RunIfDueAsync(string jobName, TimeSpan interval, DateTimeOffset now, Func<Task> action, CancellationToken ct)

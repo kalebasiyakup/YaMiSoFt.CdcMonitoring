@@ -22,4 +22,7 @@ public class CdcRelationshipHealthRepository(CdcMonitoringDbContext db) : ICdcRe
             .ToListAsync(ct);
 
     public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
+
+    public Task<int> DeleteOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default) =>
+        db.CdcRelationshipHealthEntries.Where(h => h.CheckedAt < cutoff).ExecuteDeleteAsync(ct);
 }

@@ -13,4 +13,7 @@ public class ReconciliationResultRepository(CdcMonitoringDbContext db) : IReconc
         await db.ReconciliationResults.AddAsync(result, ct);
 
     public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
+
+    public Task<int> DeleteOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default) =>
+        db.ReconciliationResults.Where(r => r.RunAt < cutoff).ExecuteDeleteAsync(ct);
 }
