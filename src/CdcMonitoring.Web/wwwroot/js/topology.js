@@ -28,7 +28,9 @@ export function render(containerId, nodes, edges, dotNetRef) {
             // Target (sub): abone bağlantı — turuncu/terracotta. Üçü de birbirinden ve
             // kenarların sağlık renklerinden (yeşil/sarı/kırmızı/gri) net şekilde ayrışır.
             source: { shape: "box", color: { background: "#eef3fb", border: "#4a76c4" } },
-            hub: { shape: "ellipse", color: { background: "#f3ecfc", border: "#8a63d2" } },
+            // widthConstraint: uzun publication adları tek satırda genişlemek yerine
+            // satır kaydırılır (ellipse yatayda daralır, dikeyde büyür) — komşu hub'larla çakışmayı önler.
+            hub: { shape: "ellipse", color: { background: "#f3ecfc", border: "#8a63d2" }, widthConstraint: { minimum: 90, maximum: 130 } },
             target: { shape: "box", color: { background: "#fdf0e6", border: "#c2703d" } }
         },
         edges: {
@@ -43,7 +45,7 @@ export function render(containerId, nodes, edges, dotNetRef) {
                 direction: "UD",
                 sortMethod: "directed",
                 levelSeparation: 130,
-                nodeSpacing: 140
+                nodeSpacing: 200
             }
         },
         interaction: { hover: true }
