@@ -1,5 +1,6 @@
 @page "/settings"
 @rendermode InteractiveServer
+@using System.Globalization
 @inject SystemSettingsService SettingsService
 
 <PageTitle>Ayarlar</PageTitle>
@@ -33,6 +34,9 @@ else
             </li>
             <li class="nav-item">
                 <button type="button" class="nav-link @(_activeTab == "email" ? "active" : "")" @onclick='() => _activeTab = "email"'>E-posta (SMTP)</button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link @(_activeTab == "display" ? "active" : "")" @onclick='() => _activeTab = "display"'>Görünüm</button>
             </li>
         </ul>
 
@@ -169,7 +173,25 @@ else
             </div>
         }
 
-        <button type="submit" class="btn btn-primary mt-2">Kaydet</button>
+        @if (_activeTab == "display")
+        {
+            <div class="row mb-3">
+                <div class="col-md-8">
+                    <label class="form-label">
+                        Tarih ve saat formatı
+                        <InfoTooltip Text="Bu tercih yalnızca bu tarayıcıya özeldir (bir çerezle saklanır) — uygulamada hesap girişi olmadığından başka bir cihazda veya gizli sekmede varsayılana (Türkçe) döner." />
+                    </label>
+                    <div class="d-flex gap-2">
+                        <a class="btn btn-outline-primary @(_currentCulture == "tr-TR" ? "active" : "")" href="@CultureLink("tr-TR")">Türkçe — 13.09.2026 15:45</a>
+                        <a class="btn btn-outline-primary @(_currentCulture == "en-US" ? "active" : "")" href="@CultureLink("en-US")">English — 9/13/2026 3:45 PM</a>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <button type="submit" class="btn btn-primary mt-2">Kaydet</button>
+        }
 
         @if (_activeTab == "email")
         {
@@ -206,6 +228,10 @@ else
     private string _activeTab = "healthcheck";
     private bool _isTestingEmail;
     private EmailTestResult? _emailTestResult;
+    private readonly string _currentCulture = CultureInfo.CurrentCulture.Name;
+
+    private static string CultureLink(string culture) =>
+        $"/culture/set?culture={Uri.EscapeDataString(culture)}&redirectUri={Uri.EscapeDataString("/settings")}";
 
     protected override async Task OnInitializedAsync()
     {

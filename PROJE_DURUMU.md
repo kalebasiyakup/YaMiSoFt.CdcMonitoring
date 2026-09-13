@@ -35,6 +35,7 @@ Tüm bu çalışma (kod incelemesi + .NET 10 yükseltmesi + UI modernizasyonu + 
 | Ek-5 | UI görsel modernizasyonu (CSS-only: renk paleti, tipografi, kart/tablo/form/badge/buton stilleri, sidebar) | ✅ Tamamlandı, tüm ana sayfalarda görsel doğrulandı, commit edildi |
 | Ek-6 | UI iyileştirmeleri: menüye özel ikonlar, Düzenle/Sil ikon butonları, Ayarlar sayfası sekmeli görünüm, "Bağlantı Defteri"→"Bağlantılar" yeniden adlandırma, Ana Sayfa dashboard'u (özet kartları, sağlık dağılımı, son alarmlar, hızlı erişim) | ✅ Tamamlandı, görsel doğrulandı, commit edildi |
 | Ek-7 | Topoloji hiyerarşik modele geçirildi (kaynak→hub→hedef, fan-out, odaklama/dimming), local fixture genişletildi + otomatik kuruldu (`cdc-fixture`, `mid-db`), Ayarlar sayfasına info-tooltip + e-posta test butonu, public repo hazırlığı (LICENSE, jenerik isimlendirme) | ✅ Tamamlandı, uçtan uca canlı doğrulandı, commit edildi |
+| Ek-8 | Topoloji ekranında uzun publication adlarının hub düğümlerinde çakışması giderildi (`widthConstraint` ile satır kaydırma + `nodeSpacing` artışı), Blazor'un varsayılan İngilizce reconnect UI'ı (`ReconnectModal`) Türkçeleştirildi, `/settings` → Görünüm sekmesine çerez tabanlı (tarayıcı bazlı, hesap gerektirmeyen) tarih/saat formatı tercihi (tr-TR/en-US) eklendi | ✅ Tamamlandı, `dotnet build` 0 hata; tarayıcıda görsel doğrulama bekliyor |
 
 ## Mimari Özet
 

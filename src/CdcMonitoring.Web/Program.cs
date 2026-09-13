@@ -1,8 +1,10 @@
+using System.Globalization;
 using CdcMonitoring.Application.Connections;
 using CdcMonitoring.Domain.Enums;
 using CdcMonitoring.Infrastructure;
 using CdcMonitoring.Infrastructure.Persistence;
 using CdcMonitoring.Web.Components;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Prometheus;
 using Serilog;
@@ -25,12 +27,24 @@ try
     builder.Services.AddRazorComponents()
         .AddInteractiveServerComponents();
 
+    // Tarih/saat formatı tarayıcı bazlı bir çerez tercihi (bkz. /culture/set) ile seçilir;
+    // giriş sistemi olmadığından hesaba değil o tarayıcıya bağlıdır. Varsayılan tr-TR.
+    var supportedCultures = new[] { new CultureInfo("tr-TR"), new CultureInfo("en-US") };
+    builder.Services.Configure<RequestLocalizationOptions>(options =>
+    {
+        options.DefaultRequestCulture = new RequestCulture("tr-TR");
+        options.SupportedCultures = supportedCultures;
+        options.SupportedUICultures = supportedCultures;
+    });
+
     builder.Services.AddCdcMonitoringInfrastructure(builder.Configuration);
 
     builder.Services.AddHealthChecks()
         .AddDbContextCheck<CdcMonitoringDbContext>("metadata-db", tags: ["ready"]);
 
     var app = builder.Build();
+
+    app.UseRequestLocalization();
 
     if (app.Environment.IsDevelopment())
     {
@@ -62,6 +76,21 @@ try
     app.MapHealthChecks("/readyz", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         Predicate = check => check.Tags.Contains("ready")
+    });
+
+    // Ayarlar > Görünüm sekmesindeki format bağlantılarının hedefi: seçilen kültürü bu tarayıcı
+    // için çereze yazar ve geldiği sayfaya geri döner (tam sayfa yenileme — circuit yeni kültürle başlar).
+    app.MapGet("/culture/set", (HttpContext context, string culture, string redirectUri) =>
+    {
+        if (supportedCultures.Any(c => c.Name == culture))
+        {
+            context.Response.Cookies.Append(
+                CookieRequestCultureProvider.DefaultCookieName,
+                CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(culture)),
+                new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true });
+        }
+
+        return Results.LocalRedirect(string.IsNullOrEmpty(redirectUri) ? "/" : redirectUri);
     });
 
     app.MapStaticAssets();
