@@ -2,6 +2,8 @@ let network = null;
 let nodesDataSet = null;
 let edgesDataSet = null;
 let panelEl = null;
+let originalEdgeColor = new Map();
+let focusedNodeId = null;
 
 export function render(containerId, nodes, edges, dotNetRef) {
     const container = document.getElementById(containerId);
@@ -9,6 +11,8 @@ export function render(containerId, nodes, edges, dotNetRef) {
 
     nodesDataSet = new vis.DataSet(nodes);
     edgesDataSet = new vis.DataSet(edges);
+    originalEdgeColor = new Map(edges.map(e => [e.id, (e.color && e.color.color) || "#848484"]));
+    focusedNodeId = null;
     const data = {
         nodes: nodesDataSet,
         edges: edgesDataSet
@@ -55,11 +59,20 @@ export function render(containerId, nodes, edges, dotNetRef) {
     network.on("click", (params) => {
         if (params.nodes.length > 0) {
             hidePanel();
-            const node = nodesDataSet.get(params.nodes[0]);
+            const clickedId = params.nodes[0];
+            const node = nodesDataSet.get(clickedId);
+
+            // Aynı düğüme tekrar tıklamak odağı kaldırır; başka bir düğüme tıklamak odağı değiştirir.
+            if (focusedNodeId === clickedId) {
+                clearFocus();
+            } else {
+                applyFocus(clickedId);
+            }
+
             // Hub (publication) düğümleri gerçek bir bağlantıya karşılık gelmez;
             // alttaki domain listesi yalnızca kaynak/hedef bağlantı tıklamalarında geçiş yapar.
             if (node && node.group !== "hub") {
-                dotNetRef?.invokeMethodAsync("OnNodeSelected", params.nodes[0]);
+                dotNetRef?.invokeMethodAsync("OnNodeSelected", clickedId);
             }
             return;
         }
@@ -69,8 +82,40 @@ export function render(containerId, nodes, edges, dotNetRef) {
             showPanel(edge);
         } else {
             hidePanel();
+            clearFocus();
         }
     });
+}
+
+// Tıklanan düğümü ve doğrudan komşularını/aralarındaki kenarları normal opaklıkta bırakır,
+// grafiğin geri kalanını soluklaştırır ("bu düğüm neyle konuşuyor?" sorusuna odaklanmak için).
+function applyFocus(nodeId) {
+    focusedNodeId = nodeId;
+
+    const connectedNodes = new Set(network.getConnectedNodes(nodeId));
+    connectedNodes.add(nodeId);
+    const connectedEdges = new Set(network.getConnectedEdges(nodeId));
+
+    nodesDataSet.update(nodesDataSet.get().map(n => ({
+        id: n.id,
+        opacity: connectedNodes.has(n.id) ? 1 : 0.15
+    })));
+
+    edgesDataSet.update(edgesDataSet.get().map(e => ({
+        id: e.id,
+        color: { color: originalEdgeColor.get(e.id) || "#848484", opacity: connectedEdges.has(e.id) ? 1 : 0.12 }
+    })));
+}
+
+function clearFocus() {
+    if (focusedNodeId === null) return;
+    focusedNodeId = null;
+
+    nodesDataSet.update(nodesDataSet.get().map(n => ({ id: n.id, opacity: 1 })));
+    edgesDataSet.update(edgesDataSet.get().map(e => ({
+        id: e.id,
+        color: { color: originalEdgeColor.get(e.id) || "#848484", opacity: 1 }
+    })));
 }
 
 function ensurePanel(container) {
@@ -130,4 +175,6 @@ export function dispose() {
     panelEl = null;
     edgesDataSet = null;
     nodesDataSet = null;
+    originalEdgeColor = new Map();
+    focusedNodeId = null;
 }
