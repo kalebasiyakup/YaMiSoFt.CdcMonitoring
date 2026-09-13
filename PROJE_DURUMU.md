@@ -3,9 +3,9 @@
 > Bu dosya, projeye sonradan (yeni bir Claude Code oturumunda) devam edebilmek için
 > tutulur. Faz bazlı tamamlanma durumunu ve açık/kalan işleri listeler. Genel
 > proje bağlamı için `memory.md` ve `README.md`'ye, gereksinimler için
-> `CDC_Monitoring_BRD_v0.3.md`'ye bakın.
+> `CDC_Monitoring_BRD.md`'ye bakın.
 >
-> Son güncelleme: 2026-09-12
+> Son güncelleme: 2026-09-13
 
 ## Genel Durum
 
@@ -15,7 +15,11 @@ BRD'nin 3 fazı da (FR-01..FR-14, NFR-01..NFR-08) uygulanmış, `docker-compose.
 
 **.NET 10 yükseltmesi tamamlandı ve canlı doğrulandı** (`dotnet build` 0 hata, `dotnet test` 42/42, Docker Compose üzerinde gerçek pub-db/sub-db ile uçtan uca). Yükseltme sırasında iki regresyon bulunup düzeltildi: (1) Npgsql 10'un ihtiyaç duyduğu `libgssapi-krb5-2` native kütüphanesi `aspnet:10.0` imajında eksikti — Dockerfile'a eklendi; (2) Dockerfile'ın `COPY *.csproj` → restore → `COPY src/` → `publish --no-restore` katmanlama kalıbı, `wwwroot` restore anında henüz kopyalanmadığından Blazor'un `_framework/blazor.web.js`'ini sağlayan örtük paketin hiç restore edilmemesine ve dolayısıyla SignalR circuit'in hiç kurulamamasına yol açıyordu (tüm etkileşimli formlar sessizce bozuktu) — `--no-restore` kaldırılarak düzeltildi. Ayrıntılar için `memory.md`'deki "Teknik Tuzaklar" bölümüne bakın.
 
-**Kod incelemesi tamamlandı** (`/code-review high --fix`, ~17 dk sürdü, 172 tool-call, 9 finder agent). 10 gerçek bulgu buldu ve hepsini düzeltti; 2 aday bulguyu (vis-network üzerinden XSS iddiası, `ConsecutiveHealthCheckFailures=0` senaryosu) inceleyip yanlış olduğunu kanıtlayarak gereksiz değişiklik yapmadı. `dotnet build` (0 hata) ve `dotnet test` (42/42) bu oturumda ayrıca doğrulandı. **Henüz commit edilmedi** — `git status`/`git diff` ile gözden geçirip commit etmek bir sonraki oturumun ilk işi olmalı.
+**Kod incelemesi tamamlandı** (`/code-review high --fix`, ~17 dk sürdü, 172 tool-call, 9 finder agent). 10 gerçek bulgu buldu ve hepsini düzeltti; 2 aday bulguyu (vis-network üzerinden XSS iddiası, `ConsecutiveHealthCheckFailures=0` senaryosu) inceleyip yanlış olduğunu kanıtlayarak gereksiz değişiklik yapmadı. `dotnet build` (0 hata) ve `dotnet test` (42/42) bu oturumda ayrıca doğrulandı.
+
+**Topoloji ekranı hiyerarşik modele geçirildi** (kaynak → publication/hub → hedef), gerçek fan-out senaryolarıyla (`docker-compose.local.yml` üzerinden `cdc-fixture` servisi otomatik kurar) uçtan uca doğrulandı; ayrıca "hem hedef hem kaynak" bir düğümün aynı Postgres instance'ında kendi kendini kilitlemesi (deadlock) keşfedilip ayrı bir `mid-db` instance'ıyla yapısal olarak çözüldü (bkz. `memory.md` Teknik Tuzaklar). Ayarlar sayfasına her alan için info-tooltip ve e-postayı kaydetmeden test etme butonu eklendi. Repo **public'e almaya hazırlandı**: Apache-2.0 `LICENSE` eklendi, gerçek işveren adı "YaMiSoFt" ile değiştirildi, local fixture verisi kurgusal bir sektöre (kütüphane/katalog) çevrildi, secret taraması yapıldı (bulgu yok). Detaylar için `README.md`'nin "Local Geliştirme ve Test" bölümüne ve `memory.md`'ye bakın.
+
+Tüm bu çalışma (kod incelemesi + .NET 10 yükseltmesi + UI modernizasyonu + UI iyileştirmeleri/dashboard + topoloji/public-repo işi) **commit edilmiştir** (`git log` ile teyit edilebilir).
 
 ## Faz Durumu
 
@@ -26,10 +30,11 @@ BRD'nin 3 fazı da (FR-01..FR-14, NFR-01..NFR-08) uygulanmış, `docker-compose.
 | Faz 3 | E-posta bildirimleri (alarm eşikleri) + Veri Tutarlılık Kontrolü (reconciliation) | ✅ Tamamlandı, gerçek SMTP (Mailpit) ile doğrulandı |
 | Ek-1 | Tüm operasyonel ayarların (appsettings.json → DB + `/settings` UI) taşınması, tick-tabanlı zamanlama, çoklu replika güvenli claim mekanizması | ✅ Tamamlandı, çoklu replika testiyle doğrulandı |
 | Ek-2 | UI'daki İngilizce metinlerin Türkçeleştirilmesi | ✅ Tamamlandı |
-| Ek-3 | Genel kod incelemesi (`/code-review high --fix`) | ✅ Tamamlandı, 10 bulgu düzeltildi — **commit edilmedi** |
-| Ek-4 | .NET 8 → .NET 10 yükseltmesi (TargetFramework, EF Core/Npgsql/Serilog paketleri, Dockerfile) | ✅ Tamamlandı, canlı doğrulandı — **commit edilmedi** |
-| Ek-5 | UI görsel modernizasyonu (CSS-only: renk paleti, tipografi, kart/tablo/form/badge/buton stilleri, sidebar) | ✅ Tamamlandı, tüm ana sayfalarda görsel doğrulandı — **commit edilmedi** |
-| Ek-6 | UI iyileştirmeleri: menüye özel ikonlar, Düzenle/Sil ikon butonları, Ayarlar sayfası sekmeli görünüm, "Bağlantı Defteri"→"Bağlantılar" yeniden adlandırma, Ana Sayfa dashboard'u (özet kartları, sağlık dağılımı, son alarmlar, hızlı erişim) | ✅ Tamamlandı, görsel doğrulandı — **commit edilmedi** |
+| Ek-3 | Genel kod incelemesi (`/code-review high --fix`) | ✅ Tamamlandı, 10 bulgu düzeltildi, commit edildi |
+| Ek-4 | .NET 8 → .NET 10 yükseltmesi (TargetFramework, EF Core/Npgsql/Serilog paketleri, Dockerfile) | ✅ Tamamlandı, canlı doğrulandı, commit edildi |
+| Ek-5 | UI görsel modernizasyonu (CSS-only: renk paleti, tipografi, kart/tablo/form/badge/buton stilleri, sidebar) | ✅ Tamamlandı, tüm ana sayfalarda görsel doğrulandı, commit edildi |
+| Ek-6 | UI iyileştirmeleri: menüye özel ikonlar, Düzenle/Sil ikon butonları, Ayarlar sayfası sekmeli görünüm, "Bağlantı Defteri"→"Bağlantılar" yeniden adlandırma, Ana Sayfa dashboard'u (özet kartları, sağlık dağılımı, son alarmlar, hızlı erişim) | ✅ Tamamlandı, görsel doğrulandı, commit edildi |
+| Ek-7 | Topoloji hiyerarşik modele geçirildi (kaynak→hub→hedef, fan-out, odaklama/dimming), local fixture genişletildi + otomatik kuruldu (`cdc-fixture`, `mid-db`), Ayarlar sayfasına info-tooltip + e-posta test butonu, public repo hazırlığı (LICENSE, jenerik isimlendirme) | ✅ Tamamlandı, uçtan uca canlı doğrulandı, commit edildi |
 
 ## Mimari Özet
 
@@ -73,4 +78,4 @@ Bunlar bilinçli olarak kapsam dışı bırakılmış veya gerçek ortamda henü
 - `Program.cs` fatal başlangıç hatasında process'i sıfır olmayan bir exit code ile kapatmıyor.
 - `docker-compose.local.yml` / `appsettings.Development.json`'daki düz metin dev parolaları (yalnızca local dosyalar, kapsamlı bir secret-yönetimi kararı gerektirir).
 
-**Henüz commit edilmedi** (kod incelemesi + .NET 10 yükseltmesi + UI modernizasyonu + UI iyileştirmeleri/dashboard) — bir sonraki oturumda önce bunu yapın.
+Tüm bu bulgular dahil olmak üzere yukarıdaki tüm çalışma commit edilmiştir.

@@ -2,7 +2,7 @@
 
 PostgreSQL örnekleri arasındaki mantıksal replikasyon (publication/subscription) tabanlı CDC (Change Data Capture) ilişkilerini kayıt altına alan, keşfeden, izleyen ve sağlıksız durumlarda e-posta ile bildiren **tamamen salt-gözlem (read-only)** bir .NET uygulaması.
 
-Gereksinimlerin tam listesi için bkz. [`CDC_Monitoring_BRD_v0.3.md`](./CDC_Monitoring_BRD_v0.3.md).
+Gereksinimlerin tam listesi için bkz. [`CDC_Monitoring_BRD.md`](./CDC_Monitoring_BRD.md).
 
 ## Problem
 
@@ -16,10 +16,10 @@ Gereksinimlerin tam listesi için bkz. [`CDC_Monitoring_BRD_v0.3.md`](./CDC_Moni
 
 - **Bağlantı Defteri:** PostgreSQL bağlantılarını (host/port/db/kullanıcı/parola/ortam etiketi) kaydeder; parolalar uygulama içi Data Protection ile şifreli saklanır, hiçbir ekranda geri gösterilmez.
 - **CDC İlişkileri:** Kayıtlı bağlantılar arasında `pg_publication`, `pg_subscription`, `pg_replication_slots` gibi sistem görünümlerini salt-okuma ile tarayarak CDC ilişkilerini otomatik keşfeder; kullanıcı bu önerileri onaylar/reddeder ya da elle tanımlar.
-- **Topoloji:** Kayıtlı bağlantıları ve aralarındaki CDC ilişkilerini canlı güncellenen bir graf ekranında gösterir (kaynak → hedef, sağlık durumu, lag).
+- **Topoloji:** Kayıtlı bağlantıları ve aralarındaki CDC ilişkilerini canlı güncellenen, hiyerarşik (kaynak → publication/hub → hedef) bir graf ekranında gösterir; bir publication'ın birden fazla hedefe bağlandığı durumlar (fan-out) ayrı kenarlar olarak görünür, kenar rengi sağlık durumunu (yeşil/sarı/kırmızı/gri) taşır. Bir düğüme tıklamak onu ve doğrudan komşularını öne çıkarıp geri kalanını soluklaştırır (odaklama); bir kenara tıklamak slot/lag detaylarını gösterir.
 - **Alarmlar:** Slot inaktifliği, WAL kritik durumu, subscription hatası, sürekli artan lag ve ardışık health check hatası gibi durumları izler; eşik aşıldığında **e-posta** ile bildirir (anti-flap: aynı sorun için tekrar tekrar göndermez, durum düzelince otomatik kapatır).
 - **Veri Tutarlılık Kontrolü:** Onaylanmış CDC ilişkileri için periyodik olarak kaynak-hedef satır sayısı/checksum karşılaştırması yapar, tutarsızlık bulunursa e-posta ile raporlar.
-- **Ayarlar:** Tüm çalışma parametreleri (tarama sıklıkları, alarm eşikleri, SMTP bilgileri) veritabanında saklanır ve `/settings` ekranından, **yeniden başlatma gerekmeden** yönetilir.
+- **Ayarlar:** Tüm çalışma parametreleri (tarama sıklıkları, alarm eşikleri, SMTP bilgileri) veritabanında saklanır ve `/settings` ekranından — her alanın yanındaki bilgi ikonuyla ne işe yaradığı açıklanarak, e-posta ayarları için kaydetmeden test gönderme imkânıyla, **yeniden başlatma gerekmeden** — yönetilir.
 
 ### Salt-gözlem garantisi
 

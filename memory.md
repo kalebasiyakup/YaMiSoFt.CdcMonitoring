@@ -8,7 +8,7 @@
 ## Kim, Ne, Neden
 
 - **Proje sahibi:** Yakup Kalebaşı — Yazılım Çözümleri Mimarı, YaMiSoFt.
-- **Ne:** `CDC_Monitoring_BRD_v0.3.md`'de tanımlı, PostgreSQL örnekleri arasındaki
+- **Ne:** `CDC_Monitoring_BRD.md`'de tanımlı, PostgreSQL örnekleri arasındaki
   mantıksal replikasyon (publication/subscription) tabanlı CDC ilişkilerini kayıt
   altına alan, keşfeden, izleyen ve e-posta ile bildiren salt-gözlem bir .NET
   uygulaması.
@@ -37,6 +37,18 @@
   netleştirme yapıldı ve kullanıcı hep "Recommended" seçeneği onayladı — bu, önerilen
   varsayılanların isabetli olduğunu gösteriyor, gelecekte de gerekçeli bir varsayılan
   sunup onaya sunmak makul.
+- **Dokümantasyon her zaman güncel tutulmalı:** Kullanıcı açıkça "bundan sonrasında
+  README/memory v.s. dosyaları hep güncelle" dedi — kod/config'e her değişiklik
+  yapıldığında README.md ve bu dosya (memory.md) da aynı iş parçası içinde, sorulmadan
+  güncellenmeli (özellikle "Local Geliştirme ve Test" bölümü ve bu dosyanın ilgili
+  kısımları).
+- **Public repo hazırlığı yapıldı:** Repo public'e alınacak; bu yüzden lisans **Apache
+  License 2.0** (`LICENSE`, copyright: Yakup Kalebaşı), gerçek işveren adı yerine
+  **"YaMiSoFt"** kullanılıyor (BRD, bu dosya, Helm `values.yaml`'daki registry
+  hostname'i dahil), ve local test fixture'ındaki zengin senaryo bilinçli olarak
+  **kurgusal bir sektör** (kütüphane/katalog) kullanıyor — gerçek şirket domain/servis
+  isimleriyle örtüşmesin diye. Yeni içerik eklerken (özellikle örnek veri, BRD,
+  yorum satırları) gerçek şirket adı/iç altyapı adı sızdırmamaya dikkat edilmeli.
 
 ## Önemli Mimari Kararlar ve Gerekçeleri
 
@@ -77,6 +89,13 @@
 - **Reconciliation checksum'ı:** Sıra bağımsız (order-independent) bir teknik —
   her satırın `md5(t::text)`'inin ilk 64 bit'i toplanır (`sum(('x'||...)::bit(64)::bigint)`).
   Standart bir PostgreSQL "checksum without ORDER BY" idiyomu.
+- **Topoloji grafiği üç katmanlı (kaynak → publication/hub → hedef):** `TopologyGraphBuilder.
+  BuildHierarchy` her `(SourceConnectionId, PublicationName)` çifti için ayrı bir hub düğümü
+  üretir; bir publication'ın birden fazla subscription'a bağlanması (fan-out) hub'dan çıkan
+  ayrı kenarlar olarak kalır. Bir bağlantı hem source hem target rolündeyse (bkz. yukarıdaki
+  mid-db notu) basitlik için "source" sayılır. `topology.js`'te vis-network hiyerarşik
+  (UD) layout kullanır; bir düğüme tıklamak onu ve komşularını öne çıkarıp gerisini
+  soluklaştırır (`applyFocus`/`clearFocus`, opacity tabanlı).
 
 ## Teknik Tuzaklar / Öğrenilenler (gelecekte tekrar karşılaşılabilir)
 
@@ -154,6 +173,19 @@
   scope'ta paralellik güvenli değildir (yalnızca gerçekten ayrı DbContext scope'ları
   varsa, ör. arka plan job'larında `IServiceScopeFactory.CreateScope()` ile açılan
   bağımsız scope'lar arasında paralellik güvenlidir).
+- **Bir PostgreSQL veritabanı, AYNI sunucu üzerinde hem logical replication SUBSCRIBER
+  hem PUBLISHER olduğunda (başka bir veritabanının ona abone olması), `CREATE
+  SUBSCRIPTION` süresiz kilitlenebilir (deadlock).** Kök neden: komut kendi açtığı
+  walsender'ın (`CREATE_REPLICATION_SLOT ... SNAPSHOT 'nothing'`) bitmesini beklerken,
+  o walsender da komutun tuttuğu transactionid kilidini bekler — döngüsel bekleme.
+  `pg_stat_activity`'de `wait_event: transactionid` + `backend_type: walsender` görülüyorsa
+  bu budur (sıralama/apply-worker sayısıyla ilgisi yok, denendi — yalnızca "aynı sunucuya
+  geri bağlanan subscription" tetikliyor). **Çözüm: "hem hedef hem kaynak" rolündeki
+  düğümü ayrı bir üçüncü Postgres instance'ına koymak** (bkz. `docker-compose.local.yml`
+  `mid-db` servisi, `dom-lending-api` için) — hiçbir subscription artık kendi sunucusuna
+  dönmüyor. Ayrıca ~25+ subscription/slot kullanan bir test ortamında Postgres'in
+  `max_replication_slots`/`max_wal_senders`/`max_logical_replication_workers` (varsayılan
+  sırasıyla 10/10/4) ve `max_worker_processes` (varsayılan 8) yetersiz kalır, yükseltilmeli.
 - **Chrome automation `computer` aracının `left_click`'i (hem koordinat hem `ref` ile)
   bazen bir `<button type="submit">` üzerinde tıklama olayını sayfaya iletmiyor**
   (görsel olarak buton üzerinde gibi görünse de sunucuda hiçbir istek/log oluşmuyor).
@@ -173,6 +205,13 @@
   olarak sabitlenir ve `CdcMonitoring.UnitTests/Postgres/ReadOnlyGuardTests.cs`
   bunların hepsinin `SELECT` ile başladığını doğrular (FR-14 garantisi, yeni bir
   sorgu eklenirse bu teste de eklenmelidir).
-- Local test ortamı: `docker-compose.local.yml` (metadata-db + pub-db/sub-db +
-  mailpit + app) ve `scripts/setup-local-cdc-test.sh` (test publication/subscription
-  kurulumu — bilinçli olarak uygulama dışında, DB ekibinin yapacağı işi simüle eder).
+- Local test ortamı: `docker-compose.local.yml` (metadata-db + pub-db/sub-db/mid-db +
+  mailpit + app + cdc-fixture). `cdc-fixture` servisi, `docker compose up` her
+  çalıştırıldığında `scripts/cdc-fixture-entrypoint.sh`'i otomatik koşturup iki senaryo
+  kurar: (1) basit orders/customers/products/invoices/payments fan-out'u, (2) kurgusal
+  bir kütüphane/katalog domaini (dom-catalog-api → dom-lending-api → 5 hedef servis) —
+  isimler bilinçli olarak jenerik, gerçek şirket domain'iyle örtüşmesin diye. `app`,
+  Development'ta açılışta bu bağlantıların tamamını Connections ekranına otomatik
+  kaydeder (`Program.cs`, `Seed:LocalCdcFixtureConnections`) — elle form doldurmaya
+  gerek yok. `scripts/setup-local-cdc-test.sh` yalnızca eski/tekil senaryoyu host'tan
+  elle tekrarlamak isteyenler için ikincil olarak duruyor, normal akışta gerekmiyor.
