@@ -90,45 +90,56 @@ else
         if (_selectedConnectionId is null || _domainViews.All(v => v.ConnectionId != _selectedConnectionId))
             _selectedConnectionId = _domainViews.FirstOrDefault()?.ConnectionId;
 
-        var relevantConnectionIds = relationships
-            .SelectMany(r => new[] { r.SourceConnectionId, r.TargetConnectionId })
-            .ToHashSet();
+        // Kaynak → publication (hub) → hedef üç katmanlı, akış yönlü topoloji.
+        // Bir publication'ın birden fazla subscription'a bağlandığı durumlar (fan-out),
+        // hub'dan çıkan ayrı kenarlar olarak görünür.
+        var hierarchy = TopologyGraphBuilder.BuildHierarchy(relationships);
 
-        var nodes = connections
-            .Where(c => relevantConnectionIds.Contains(c.Id))
-            .Select(c => new
+        var nodes = hierarchy.Nodes
+            .Select(n => new
             {
-                id = c.Id,
-                label = $"{c.Name}\n{c.EnvironmentTag}",
-                shape = "box",
-                color = new { background = "#eef3fb", border = "#4a76c4" }
+                id = n.Id,
+                label = n.Kind == "hub"
+                    ? n.Label
+                    : $"{n.Label}\n{(Guid.TryParse(n.Id, out var connectionId) ? _environmentTags.GetValueOrDefault(connectionId, "") : "")}",
+                group = n.Kind
             })
             .ToList();
+
+        var edges = new List<object>();
+
+        edges.AddRange(hierarchy.HubEdges.Select(e => new
+        {
+            id = e.Id,
+            from = (object)e.FromSourceId,
+            to = (object)e.ToHubId,
+            dashes = true,
+            width = 1,
+            color = new { color = "#adb5bd" }
+        }));
 
         // Grafikte yalnızca ilişki sayısı yazar; slot/lag gibi ayrıntılar alttaki listede
         // okunaklı biçimde durduğu için kenar etiketleri kısa tutulur.
-        var edges = TopologyGraphBuilder.BuildEdges(relationships)
-            .Select(e => new
+        edges.AddRange(hierarchy.LeafEdges.Select(e => new
+        {
+            id = e.Id,
+            from = (object)e.FromHubId,
+            to = (object)e.ToTargetId,
+            dashes = false,
+            width = e.Width,
+            color = new { color = e.Color },
+            title = e.Title,
+            relationships = e.Relationships.Select(r => new
             {
-                id = e.Id,
-                from = e.From,
-                to = e.To,
-                label = $"{e.Count} ilişki",
-                width = e.Width,
-                color = new { color = e.Color },
-                title = e.Title,
-                relationships = e.Relationships.Select(r => new
-                {
-                    publication = r.PublicationName,
-                    subscription = r.SubscriptionName,
-                    slot = r.SlotName,
-                    status = r.StatusText,
-                    health = r.HealthText,
-                    lag = r.LagBytes,
-                    color = r.Color
-                }).ToList()
-            })
-            .ToList();
+                publication = r.PublicationName,
+                subscription = r.SubscriptionName,
+                slot = r.SlotName,
+                status = r.StatusText,
+                health = r.HealthText,
+                lag = r.LagBytes,
+                color = r.Color
+            }).ToList()
+        }));
 
         if (_module is not null)
             await _module.InvokeVoidAsync("render", "topology-canvas", nodes, edges, _selfRef);

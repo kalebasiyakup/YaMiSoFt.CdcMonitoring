@@ -44,6 +44,22 @@ services:
       timeout: 3s
       retries: 20
 
+  # pub-db/sub-db sağlıklı olur olmaz, aralarında gerçek bir logical replication
+  # publication/subscription kurar (scripts/setup-local-cdc-test.sh ile aynı işi yapar,
+  # ama `docker compose up` ile birlikte otomatik çalışır — ayrıca bash script çalıştırmaya
+  # gerek kalmaz). Idempotent: publication/subscription zaten varsa hatasız geçer.
+  cdc-fixture:
+    image: postgres:16
+    depends_on:
+      pub-db:
+        condition: service_healthy
+      sub-db:
+        condition: service_healthy
+    volumes:
+      - ./scripts/cdc-fixture-entrypoint.sh:/cdc-fixture-entrypoint.sh:ro
+    entrypoint: ["sh", "/cdc-fixture-entrypoint.sh"]
+    restart: "no"
+
   # Gerçek bir SMTP sunucusu olmadan e-posta bildirimlerini (FR-10) doğrulamak
   # için: Mailpit gönderilen tüm e-postaları yakalar, http://localhost:8025
   # üzerinde bir web arayüzünde gösterir. Prod'da yerini kurumsal SMTP alır.
@@ -71,5 +87,9 @@ services:
       # local testte oradan mailpit:1025'i, kısa interval'leri vb. gir.
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__MetadataDb: "Host=metadata-db;Port=5432;Database=cdc_monitoring;Username=postgres;Password=postgres"
+      # cdc-fixture'ın pub-db/sub-db üzerinde kurduğu publication/subscription'a karşılık gelen
+      # iki bağlantıyı Connections ekranına otomatik kaydeder (bkz. Program.cs) — elle
+      # "Yeni Bağlantı" formu doldurmaya gerek kalmaz.
+      Seed__LocalCdcFixtureConnections: "true"
     ports:
       - "5299:8080"

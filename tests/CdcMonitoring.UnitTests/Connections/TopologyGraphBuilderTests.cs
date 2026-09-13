@@ -164,4 +164,118 @@ public class TopologyGraphBuilderTests
         var edge = Assert.Single(edges);
         Assert.Equal($"{Merchant}__{Reimbursement}", edge.Id);
     }
+
+    private static CdcRelationshipSummary Relationship(
+        Guid source,
+        string sourceName,
+        string publication,
+        Guid target,
+        string targetName,
+        string slot,
+        CdcRelationshipStatus status = CdcRelationshipStatus.Inferred,
+        CdcRelationshipHealthSummary? health = null) => new(
+            Guid.NewGuid(),
+            source,
+            sourceName,
+            target,
+            targetName,
+            publication,
+            $"{slot}_sub",
+            slot,
+            status,
+            ConfirmedBy: null,
+            ConfirmedAt: null,
+            CreatedAt: DateTimeOffset.Parse("2026-09-12T10:00:00Z"),
+            health);
+
+    [Fact]
+    public void Hierarchy_fans_a_single_hub_out_to_multiple_targets()
+    {
+        var relationships = new[]
+        {
+            Relationship(Merchant, "Merchant", "merchant_pub", Reimbursement, "Reimbursement", "iban"),
+            Relationship(Merchant, "Merchant", "merchant_pub", Other, "Other", "brand_line_item"),
+        };
+
+        var hierarchy = TopologyGraphBuilder.BuildHierarchy(relationships);
+
+        var hub = Assert.Single(hierarchy.Nodes, n => n.Kind == "hub");
+        Assert.Equal("merchant_pub", hub.Label);
+
+        var hubEdge = Assert.Single(hierarchy.HubEdges);
+        Assert.Equal(Merchant, hubEdge.FromSourceId);
+        Assert.Equal(hub.Id, hubEdge.ToHubId);
+
+        Assert.Equal(2, hierarchy.LeafEdges.Count);
+        Assert.Contains(hierarchy.LeafEdges, e => e.FromHubId == hub.Id && e.ToTargetId == Reimbursement);
+        Assert.Contains(hierarchy.LeafEdges, e => e.FromHubId == hub.Id && e.ToTargetId == Other);
+    }
+
+    [Fact]
+    public void Hierarchy_gives_each_publication_its_own_hub_even_from_the_same_source()
+    {
+        var relationships = new[]
+        {
+            Relationship(Merchant, "Merchant", "merchant_pub", Reimbursement, "Reimbursement", "iban"),
+            Relationship(Merchant, "Merchant", "audit_pub", Other, "Other", "audit_slot"),
+        };
+
+        var hierarchy = TopologyGraphBuilder.BuildHierarchy(relationships);
+
+        var hubs = hierarchy.Nodes.Where(n => n.Kind == "hub").ToList();
+        Assert.Equal(2, hubs.Count);
+        Assert.Contains(hubs, h => h.Label == "merchant_pub");
+        Assert.Contains(hubs, h => h.Label == "audit_pub");
+
+        var sourceNode = Assert.Single(hierarchy.Nodes, n => n.Kind == "source");
+        Assert.Equal(Merchant.ToString(), sourceNode.Id);
+    }
+
+    [Fact]
+    public void Hierarchy_excludes_rejected_relationships()
+    {
+        var relationships = new[]
+        {
+            Relationship(Merchant, "Merchant", "merchant_pub", Reimbursement, "Reimbursement", "iban"),
+            Relationship(Merchant, "Merchant", "merchant_pub", Other, "Other", "brand_line_item", CdcRelationshipStatus.Rejected),
+        };
+
+        var hierarchy = TopologyGraphBuilder.BuildHierarchy(relationships);
+
+        var leafEdge = Assert.Single(hierarchy.LeafEdges);
+        Assert.Equal(Reimbursement, leafEdge.ToTargetId);
+    }
+
+    [Fact]
+    public void Hierarchy_leaf_edge_color_reflects_worst_health_like_the_flat_edge_builder()
+    {
+        var relationships = new[]
+        {
+            Relationship(Merchant, "Merchant", "merchant_pub", Reimbursement, "Reimbursement", "iban",
+                health: Health(SubscriptionState.Enabled, true)),
+            Relationship(Merchant, "Merchant", "merchant_pub", Reimbursement, "Reimbursement", "brand_line_item",
+                health: Health(SubscriptionState.Error, false)),
+        };
+
+        var hierarchy = TopologyGraphBuilder.BuildHierarchy(relationships);
+
+        var leafEdge = Assert.Single(hierarchy.LeafEdges);
+        Assert.Equal(2, leafEdge.Count);
+        Assert.Equal("#dc3545", leafEdge.Color);
+    }
+
+    [Fact]
+    public void Hierarchy_treats_a_connection_that_is_both_source_and_target_as_a_source_node()
+    {
+        var relationships = new[]
+        {
+            Relationship(Merchant, "Merchant", "merchant_pub", Reimbursement, "Reimbursement", "iban"),
+            Relationship(Reimbursement, "Reimbursement", "reimbursement_pub", Other, "Other", "slot"),
+        };
+
+        var hierarchy = TopologyGraphBuilder.BuildHierarchy(relationships);
+
+        Assert.Equal(2, hierarchy.Nodes.Count(n => n.Kind == "source"));
+        Assert.DoesNotContain(hierarchy.Nodes, n => n.Kind == "target" && n.Id == Reimbursement.ToString());
+    }
 }

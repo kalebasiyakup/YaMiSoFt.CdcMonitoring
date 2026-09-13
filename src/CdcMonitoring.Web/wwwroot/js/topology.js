@@ -1,4 +1,5 @@
 let network = null;
+let nodesDataSet = null;
 let edgesDataSet = null;
 let panelEl = null;
 
@@ -6,29 +7,39 @@ export function render(containerId, nodes, edges, dotNetRef) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
+    nodesDataSet = new vis.DataSet(nodes);
     edgesDataSet = new vis.DataSet(edges);
     const data = {
-        nodes: new vis.DataSet(nodes),
+        nodes: nodesDataSet,
         edges: edgesDataSet
     };
 
     const options = {
         nodes: {
-            shape: "box",
             margin: 10,
             font: { multi: "html", size: 14 }
+        },
+        groups: {
+            // Kaynak: yayını yapan bağlantı (DB). Hub: publication/stream. Target: abone bağlantı.
+            source: { shape: "box", color: { background: "#eef3fb", border: "#4a76c4" } },
+            hub: { shape: "ellipse", color: { background: "#f3ecfc", border: "#8a63d2" } },
+            target: { shape: "box", color: { background: "#eafaf4", border: "#2fa88f" } }
         },
         edges: {
             arrows: "to",
             font: { align: "top", size: 12 },
             smooth: { type: "cubicBezier", roundness: 0.4 }
         },
-        physics: {
-            solver: "forceAtlas2Based",
-            forceAtlas2Based: { springLength: 180 },
-            stabilization: { iterations: 150 }
+        physics: { enabled: false },
+        layout: {
+            hierarchical: {
+                enabled: true,
+                direction: "UD",
+                sortMethod: "directed",
+                levelSeparation: 130,
+                nodeSpacing: 140
+            }
         },
-        layout: { improvedLayout: true },
         interaction: { hover: true }
     };
 
@@ -40,10 +51,14 @@ export function render(containerId, nodes, edges, dotNetRef) {
     hidePanel();
 
     network.on("click", (params) => {
-        // Düğüme tıklanınca alttaki domain listesi o servise geçer.
         if (params.nodes.length > 0) {
             hidePanel();
-            dotNetRef?.invokeMethodAsync("OnNodeSelected", params.nodes[0]);
+            const node = nodesDataSet.get(params.nodes[0]);
+            // Hub (publication) düğümleri gerçek bir bağlantıya karşılık gelmez;
+            // alttaki domain listesi yalnızca kaynak/hedef bağlantı tıklamalarında geçiş yapar.
+            if (node && node.group !== "hub") {
+                dotNetRef?.invokeMethodAsync("OnNodeSelected", params.nodes[0]);
+            }
             return;
         }
 
@@ -112,4 +127,5 @@ export function dispose() {
     }
     panelEl = null;
     edgesDataSet = null;
+    nodesDataSet = null;
 }

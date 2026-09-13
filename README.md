@@ -65,11 +65,12 @@ Dört arka plan işi (bağlantı health check, CDC keşfi, alarm değerlendirme,
 Docker Compose ile gerçek PostgreSQL logical replication üzerinden uçtan uca test edilebilir bir ortam:
 
 ```bash
-# Metadata DB + kaynak/hedef Postgres (wal_level=logical) + app + Mailpit'i ayağa kaldır
+# Metadata DB + kaynak/hedef Postgres (wal_level=logical) + app + Mailpit'i ayağa kaldır.
+# cdc-fixture servisi, pub-db/sub-db sağlıklı olur olmaz test amaçlı publication/subscription'ı
+# (DB ekibinin gerçek ortamda yapacağı işi simüle eder) otomatik kurar — ayrıca bir şey
+# çalıştırmaya gerek yok. (Aynı kurulumu tekil olarak elle tekrarlamak isterseniz
+# ./scripts/setup-local-cdc-test.sh hâlâ kullanılabilir.)
 docker compose -f docker-compose.local.yml up -d --build
-
-# Test amaçlı publication/subscription kur (DB ekibinin gerçek ortamda yapacağı işi simüle eder)
-./scripts/setup-local-cdc-test.sh
 ```
 
 Sonra `http://localhost:5299` üzerinden bağlantıları kaydedip (Host: `pub-db` / `sub-db`) CDC ilişkisinin otomatik keşfedildiğini, `/topology` ekranında göründüğünü ve e-posta bildirimlerinin `http://localhost:8025` (Mailpit) üzerinden gerçek SMTP protokolüyle geldiğini gözlemleyebilirsiniz.
