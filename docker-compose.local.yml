@@ -16,9 +16,12 @@ services:
   # (prod'da bunlar K8s dışındaki sunucular olurdu). wal_level=logical burada
   # yalnızca local test kolaylığı için doğrudan container komutuyla açılıyor;
   # gerçek ortamda bu DB ekibinin sorumluluğundadır (bkz. BRD §9 varsayımları).
+  # max_replication_slots/max_wal_senders/max_logical_replication_workers varsayılanları
+  # (sırasıyla 10/10/4) cdc-fixture'ın kurduğu ~25 subscription/slot için yetersiz
+  # kaldığından yükseltildi; max_worker_processes de buna göre artırıldı.
   pub-db:
     image: postgres:16
-    command: ["postgres", "-c", "wal_level=logical"]
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=30", "-c", "max_wal_senders=30", "-c", "max_logical_replication_workers=30", "-c", "max_worker_processes=40"]
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: orders
@@ -32,12 +35,33 @@ services:
 
   sub-db:
     image: postgres:16
-    command: ["postgres", "-c", "wal_level=logical"]
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=30", "-c", "max_wal_senders=30", "-c", "max_logical_replication_workers=30", "-c", "max_worker_processes=40"]
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: orders_replica
     ports:
       - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  # dom-lending-api (Senaryo 2) hem hedef (catalog'a abone) hem kaynak (kendi publication'ını
+  # aşağı akışa yayınlar) bir "relay" düğümdür. Bunu pub-db veya sub-db üzerinde barındırmak
+  # kendi kendine döngü yapan (aynı sunucuya geri bağlanan) bir CREATE SUBSCRIPTION'a yol açar:
+  # komut, kendi açtığı walsender'ın bitmesini beklerken walsender da komutun tuttuğu
+  # transactionid kilidini bekler — süresiz deadlock. Bu yüzden dom-lending-api'ye özel,
+  # ayrı bir üçüncü Postgres örneği (mid-db) gerekiyor: hem catalog'dan (pub-db) hem
+  # mid-db'nin kendisinden aboneler (sub-db) FARKLI sunuculara bağlanır, deadlock oluşmaz.
+  mid-db:
+    image: postgres:16
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=30", "-c", "max_wal_senders=30", "-c", "max_logical_replication_workers=30", "-c", "max_worker_processes=40"]
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lending
+    ports:
+      - "5436:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 2s
@@ -54,6 +78,8 @@ services:
       pub-db:
         condition: service_healthy
       sub-db:
+        condition: service_healthy
+      mid-db:
         condition: service_healthy
     volumes:
       - ./scripts/cdc-fixture-entrypoint.sh:/cdc-fixture-entrypoint.sh:ro
@@ -79,6 +105,8 @@ services:
       pub-db:
         condition: service_healthy
       sub-db:
+        condition: service_healthy
+      mid-db:
         condition: service_healthy
     environment:
       # Yalnızca bootstrap ayarları burada kalır (DB'ye bağlanmadan önce gerekiyorlar).

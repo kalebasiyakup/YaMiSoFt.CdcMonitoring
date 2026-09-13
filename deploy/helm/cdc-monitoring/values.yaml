@@ -1,7 +1,7 @@
 replicaCount: 2
 
 image:
-  repository: registry.internal.etr/cdc-monitoring
+  repository: registry.internal.yamisoft/cdc-monitoring
   tag: "0.1.0"
   pullPolicy: IfNotPresent
 

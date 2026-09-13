@@ -40,15 +40,15 @@ else
         {
             <div class="row mb-3">
                 <div class="col-md-4">
-                    <label class="form-label">Aralık (sn)</label>
+                    <label class="form-label">Aralık (sn) <InfoTooltip Text="Her bağlantının canlılık kontrolünün (TCP/Postgres bağlanabilirlik testi) kaç saniyede bir çalışacağı." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.HealthCheckIntervalSeconds" />
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Paralellik</label>
+                    <label class="form-label">Paralellik <InfoTooltip Text="Bir tarama turunda aynı anda kaç bağlantının health check'inin çalıştırılacağı (eşzamanlılık derecesi)." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.HealthCheckMaxDegreeOfParallelism" />
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Zaman Aşımı (sn)</label>
+                    <label class="form-label">Zaman Aşımı (sn) <InfoTooltip Text="Tek bir bağlantı için health check probu bu süre içinde yanıt vermezse başarısız sayılır." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.HealthCheckTimeoutSeconds" />
                 </div>
             </div>
@@ -58,15 +58,15 @@ else
         {
             <div class="row mb-3">
                 <div class="col-md-4">
-                    <label class="form-label">Aralık (sn)</label>
+                    <label class="form-label">Aralık (sn) <InfoTooltip Text="pg_publication/pg_subscription/pg_replication_slots taramasının (yeni CDC ilişkisi keşfi) kaç saniyede bir çalışacağı." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.DiscoveryIntervalSeconds" />
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Paralellik</label>
+                    <label class="form-label">Paralellik <InfoTooltip Text="Bir tarama turunda aynı anda kaç bağlantının keşif sorgularının çalıştırılacağı (eşzamanlılık derecesi)." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.DiscoveryMaxDegreeOfParallelism" />
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Zaman Aşımı (sn)</label>
+                    <label class="form-label">Zaman Aşımı (sn) <InfoTooltip Text="Tek bir bağlantı için keşif sorgusu bu süre içinde tamamlanmazsa iptal edilir." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.DiscoveryTimeoutSeconds" />
                 </div>
             </div>
@@ -76,29 +76,29 @@ else
         {
             <div class="row mb-3">
                 <div class="col-md-3">
-                    <label class="form-label">Değerlendirme Aralığı (sn)</label>
+                    <label class="form-label">Değerlendirme Aralığı (sn) <InfoTooltip Text="Aşağıdaki tüm alarm kurallarının (slot, WAL, subscription, lag, health check) kaç saniyede bir değerlendirileceği." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.AlertingIntervalSeconds" />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Slot İnaktif Eşiği (dk)</label>
+                    <label class="form-label">Slot İnaktif Eşiği (dk) <InfoTooltip Text="Bir replication slot bu süre boyunca kesintisiz inaktif kalırsa Kritik seviyede 'Slot İnaktif' alarmı tetiklenir." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.SlotInactiveMinutes" />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Lag Süreklilik Eşiği (dk)</label>
+                    <label class="form-label">Lag Süreklilik Eşiği (dk) <InfoTooltip Text="Lag, byte eşiğinin üstünde bu süre boyunca kesintisiz kalırsa Uyarı seviyesinde 'Lag' alarmı tetiklenir." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.LagWarningSustainedMinutes" />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Lag Eşiği (byte)</label>
+                    <label class="form-label">Lag Eşiği (byte) <InfoTooltip Text="Replication lag'in bu değeri aşması ve süreklilik eşiğini de doldurması durumunda uyarı alarmı tetiklenir." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.LagWarningBytes" />
                 </div>
             </div>
             <div class="row mb-3">
                 <div class="col-md-4">
-                    <label class="form-label">Ardışık Health Check Hata Sayısı</label>
+                    <label class="form-label">Ardışık Health Check Hata Sayısı <InfoTooltip Text="Bir bağlantı üst üste bu kadar health check'te başarısız olursa 'Health Check Başarısız' uyarısı tetiklenir." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.ConsecutiveHealthCheckFailures" />
                 </div>
                 <div class="col-md-8">
-                    <label class="form-label">Sağlıklı WAL Durumları (virgülle ayrılmış)</label>
+                    <label class="form-label">Sağlıklı WAL Durumları (virgülle ayrılmış) <InfoTooltip Text="Bu listede olmayan herhangi bir WAL durumu, Kritik seviyede 'WAL Kritik' alarmını tetikler." /></label>
                     <InputText class="form-control" @bind-Value="_model.HealthyWalStatuses" placeholder="reserved,extended" />
                 </div>
             </div>
@@ -108,7 +108,7 @@ else
         {
             <div class="row mb-3">
                 <div class="col-md-4">
-                    <label class="form-label">Çalışma Sıklığı (gün)</label>
+                    <label class="form-label">Çalışma Sıklığı (gün) <InfoTooltip Text="Onaylanmış/manuel CDC ilişkileri için kaynak-hedef satır sayısı/checksum karşılaştırmasının kaç günde bir çalışacağı." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.ReconciliationIntervalDays" />
                 </div>
             </div>
@@ -119,29 +119,32 @@ else
             <div class="mb-3 form-check">
                 <InputCheckbox class="form-check-input" @bind-Value="_model.EmailEnabled" id="emailEnabled" />
                 <label class="form-check-label" for="emailEnabled">E-posta bildirimleri aktif</label>
+                <InfoTooltip Text="Kapalıyken alarm koşulları hâlâ değerlendirilir ve kaydedilir, ancak hiçbir e-posta gönderilmez." />
             </div>
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <label class="form-label">SMTP Sunucu</label>
+                    <label class="form-label">SMTP Sunucu <InfoTooltip Text="Bildirim e-postalarının gönderileceği SMTP sunucusunun host adı veya IP'si (ör. smtp.sirketiniz.com veya mailpit gibi local test sunucusu)." /></label>
                     <InputText class="form-control" @bind-Value="_model.SmtpHost" />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Port</label>
+                    <label class="form-label">Port <InfoTooltip Text="SMTP sunucusunun port numarası (yaygın: 587 StartTLS, 465 SMTPS, 25 düz metin/test)." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.SmtpPort" />
                 </div>
                 <div class="col-md-3 form-check mt-4">
                     <InputCheckbox class="form-check-input" @bind-Value="_model.SmtpUseStartTls" id="startTls" />
                     <label class="form-check-label" for="startTls">StartTLS kullan</label>
+                    <InfoTooltip Text="Bağlantı düz metin başlayıp sonradan TLS'e yükseltilir. Sunucunuz doğrudan TLS (SMTPS, genelde 465) istiyorsa bunu kapatın." />
                 </div>
             </div>
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <label class="form-label">SMTP Kullanıcı Adı</label>
+                    <label class="form-label">SMTP Kullanıcı Adı <InfoTooltip Text="SMTP sunucusunda kimlik doğrulama için kullanılacak kullanıcı adı; sunucu anonim gönderime izin veriyorsa boş bırakılabilir." /></label>
                     <InputText class="form-control" @bind-Value="_model.SmtpUsername" />
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">
                         Yeni SMTP Parolası
+                        <InfoTooltip Text="Girilirse mevcut şifreli parolanın yerini alır; boş bırakılırsa var olan parola (varsa) korunur. Parola hiçbir ekranda düz metin gösterilmez." />
                         @if (_model.HasSmtpPassword)
                         {
                             <span class="text-muted">(parola ayarlı — boş bırakılırsa korunur)</span>
@@ -152,17 +155,17 @@ else
             </div>
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <label class="form-label">Gönderen Adres</label>
+                    <label class="form-label">Gönderen Adres <InfoTooltip Text="Bildirim e-postalarının 'Kimden' (From) alanında görünecek e-posta adresi." /></label>
                     <InputText class="form-control" @bind-Value="_model.FromAddress" />
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Gönderen Görünen Ad</label>
+                    <label class="form-label">Gönderen Görünen Ad <InfoTooltip Text="Alıcının gelen kutusunda e-posta adresinin yanında görünecek görünen ad (ör. 'CDC Monitoring')." /></label>
                     <InputText class="form-control" @bind-Value="_model.FromDisplayName" />
                 </div>
             </div>
             <div class="mb-3">
-                <label class="form-label">Alıcılar (virgülle ayrılmış e-posta listesi)</label>
-                <InputText class="form-control" @bind-Value="_model.Recipients" placeholder="dba-oncall@etr.internal,ops@etr.internal" />
+                <label class="form-label">Alıcılar (virgülle ayrılmış e-posta listesi) <InfoTooltip Text="Tüm alarm bildirimlerinin gönderileceği e-posta adresleri; birden fazla adres virgülle ayrılır." /></label>
+                <InputText class="form-control" @bind-Value="_model.Recipients" placeholder="oncall@yourcompany.com,ops@yourcompany.com" />
             </div>
         }
 

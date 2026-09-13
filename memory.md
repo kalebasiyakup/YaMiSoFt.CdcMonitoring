@@ -7,7 +7,7 @@
 
 ## Kim, Ne, Neden
 
-- **Proje sahibi:** Yakup Kalebaşı — Yazılım Çözümleri Mimarı, Edenred Turkey.
+- **Proje sahibi:** Yakup Kalebaşı — Yazılım Çözümleri Mimarı, YaMiSoFt.
 - **Ne:** `CDC_Monitoring_BRD_v0.3.md`'de tanımlı, PostgreSQL örnekleri arasındaki
   mantıksal replikasyon (publication/subscription) tabanlı CDC ilişkilerini kayıt
   altına alan, keşfeden, izleyen ve e-posta ile bildiren salt-gözlem bir .NET

@@ -1,105 +1,177 @@
 #!/bin/sh
 # docker-compose.local.yml içindeki cdc-fixture servisinin entrypoint'i.
-# pub-db üzerinde 5 tablo/publication, sub-db üzerinde 3 hedef veritabanı ve
-# bunlar arasında gerçek logical replication subscription'ları kurar — 2 tablo
-# (orders, customers) birden fazla hedefe abone edilerek "bir publication'a
-# birden fazla subscription bağlanabilir" (fan-out) senaryosunu gösterir:
-#
-#   pub-db/orders (kaynak)
-#     ├─ pub_orders    -> sub-db/orders_replica, sub-db/analytics_replica   (fan-out)
-#     ├─ pub_customers -> sub-db/orders_replica, sub-db/audit_replica       (fan-out)
-#     ├─ pub_products  -> sub-db/orders_replica
-#     ├─ pub_invoices  -> sub-db/analytics_replica
-#     └─ pub_payments  -> sub-db/audit_replica
-#
 # `docker compose exec` yerine compose network'ü üzerinden doğrudan pub-db/sub-db'ye
 # bağlanır, böylece `docker compose up` ile birlikte otomatik çalışır. Her adım önce
 # var olup olmadığını kontrol eder, bu yüzden tekrar tekrar çalıştırmak log'da
 # gürültülü ERROR satırları üretmez.
+#
+# İki senaryo kurar:
+#
+# 1) Basit senaryo (pub-db/orders, kaynak):
+#      pub_orders    -> orders_replica, analytics_replica   (fan-out)
+#      pub_customers -> orders_replica, audit_replica       (fan-out)
+#      pub_products  -> orders_replica
+#      pub_invoices  -> analytics_replica
+#      pub_payments  -> audit_replica
+#
+# 2) Zengin senaryo (kurgusal bir "kütüphane/katalog" domain akışı — gerçek bir
+#      şirketin domain/servis isimleriyle örtüşmesin diye bilinçli olarak jenerik):
+#      dom-catalog-api (pub-db/catalog) 8 publication yayınlar; dom-lending-api
+#      (mid-db/lending) bunlardan bazılarına HEM abone olur HEM de kendi
+#      publication'ını (dom_lending_loan_event_pub) aşağı akışa yayınlar — yani
+#      hem hedef hem kaynak. 5 hedef servis (notification, search-index, billing,
+#      analytics, recommendation) bu hub'lara farklı kombinasyonlarla abone olur,
+#      çoğu hub 2-3 hedefe dallanır (fan-out).
+#
+#      dom-lending-api NEDEN AYRI BİR INSTANCE (mid-db)?: "hem hedef hem kaynak" bir
+#      düğüm, hem yukarı akıştan (catalog) hem de aşağı akışa (notification/billing/
+#      analytics) bağlanır. Bunlardan biri AYNI Postgres sunucusuna geri bağlanan bir
+#      CREATE SUBSCRIPTION olsaydı, komut kendi açtığı walsender'ın bitmesini beklerken
+#      walsender de komutun tuttuğu transactionid kilidini bekler — süresiz deadlock
+#      (denenip doğrulandı). pub-db/sub-db'den farklı üçüncü bir instance kullanmak
+#      bunu yapısal olarak imkansız kılar: hiçbir subscription kendi sunucusuna dönmez.
 set -eu
 
 PUB_HOST=pub-db
 PUB_DB=orders
 SUB_HOST=sub-db
+MID_HOST=mid-db
 
-echo "pub-db ve sub-db'nin hazır olması bekleniyor..."
+echo "pub-db, sub-db ve mid-db'nin hazır olması bekleniyor..."
 until PGPASSWORD=postgres pg_isready -h "$PUB_HOST" -U postgres >/dev/null 2>&1; do sleep 1; done
 until PGPASSWORD=postgres pg_isready -h "$SUB_HOST" -U postgres >/dev/null 2>&1; do sleep 1; done
+until PGPASSWORD=postgres pg_isready -h "$MID_HOST" -U postgres >/dev/null 2>&1; do sleep 1; done
 
-pub_psql() { PGPASSWORD=postgres psql -h "$PUB_HOST" -U postgres -d "$PUB_DB" -v ON_ERROR_STOP=1 -c "$1"; }
-pub_psql_tuple() { PGPASSWORD=postgres psql -h "$PUB_HOST" -U postgres -d "$PUB_DB" -tAc "$1"; }
-sub_psql() { PGPASSWORD=postgres psql -h "$SUB_HOST" -U postgres -d "$1" -v ON_ERROR_STOP=1 -c "$2"; }
-sub_psql_tuple() { PGPASSWORD=postgres psql -h "$SUB_HOST" -U postgres -d "$1" -tAc "$2"; }
+# --- Genel yardımcılar (host/db parametreli) ---------------------------------
+
+psql_c() { PGPASSWORD=postgres psql -h "$1" -U postgres -d "$2" -v ON_ERROR_STOP=1 -c "$3"; }
+psql_tuple() { PGPASSWORD=postgres psql -h "$1" -U postgres -d "$2" -tAc "$3"; }
 
 ensure_database() {
-  db="$1"
-  exists=$(sub_psql_tuple postgres "SELECT 1 FROM pg_database WHERE datname = '$db';")
+  # $1=host $2=db
+  exists=$(psql_tuple "$1" postgres "SELECT 1 FROM pg_database WHERE datname = '$2';")
   if [ "$exists" != "1" ]; then
-    sub_psql postgres "CREATE DATABASE $db;"
-    echo "$db veritabanı oluşturuldu."
+    psql_c "$1" postgres "CREATE DATABASE $2;"
+    echo "$1/$2 veritabanı oluşturuldu."
   fi
 }
 
 ensure_publication() {
-  table="$1"
-  pub="pub_$table"
-  pub_psql "CREATE TABLE IF NOT EXISTS $table(id serial primary key, name text);"
-
-  exists=$(pub_psql_tuple "SELECT 1 FROM pg_publication WHERE pubname = '$pub';")
+  # $1=host $2=db $3=table $4=pubname
+  psql_c "$1" "$2" "CREATE TABLE IF NOT EXISTS $3(id serial primary key, name text);"
+  exists=$(psql_tuple "$1" "$2" "SELECT 1 FROM pg_publication WHERE pubname = '$4';")
   if [ "$exists" = "1" ]; then
-    echo "$pub zaten mevcut, atlanıyor."
+    echo "$4 zaten mevcut, atlanıyor."
   else
-    pub_psql "CREATE PUBLICATION $pub FOR TABLE $table;"
-    echo "$pub oluşturuldu."
+    psql_c "$1" "$2" "CREATE PUBLICATION $4 FOR TABLE $3;"
+    echo "$4 oluşturuldu."
   fi
 }
 
 ensure_subscription() {
-  db="$1"; table="$2"
-  sub="sub_${db}_${table}"
-  pub="pub_${table}"
-
-  sub_psql "$db" "CREATE TABLE IF NOT EXISTS $table(id serial primary key, name text);"
-
-  exists=$(sub_psql_tuple "$db" "SELECT 1 FROM pg_subscription WHERE subname = '$sub';")
+  # $1=sub_host $2=sub_db $3=sub_name $4=pub_host $5=pub_db $6=pub_name $7=table
+  psql_c "$1" "$2" "CREATE TABLE IF NOT EXISTS $7(id serial primary key, name text);"
+  exists=$(psql_tuple "$1" "$2" "SELECT 1 FROM pg_subscription WHERE subname = '$3';")
   if [ "$exists" = "1" ]; then
-    echo "$sub zaten mevcut, atlanıyor."
+    echo "$3 zaten mevcut, atlanıyor."
   else
-    sub_psql "$db" "CREATE SUBSCRIPTION $sub CONNECTION 'host=$PUB_HOST port=5432 dbname=$PUB_DB user=postgres password=postgres' PUBLICATION $pub;"
-    echo "$sub oluşturuldu."
+    psql_c "$1" "$2" "CREATE SUBSCRIPTION $3 CONNECTION 'host=$4 port=5432 dbname=$5 user=postgres password=postgres' PUBLICATION $6;"
+    echo "$3 oluşturuldu."
   fi
 }
 
+# ==============================================================================
+# Senaryo 1: basit (orders/customers/products/invoices/payments)
+# ==============================================================================
+
 # Önceki (tek tablo/tek hedef) sürümden kalan sabit isimli "sub_orders" varsa,
 # resync gerektirmeden yeni adlandırma şemasına taşı.
-legacy_exists=$(sub_psql_tuple orders_replica "SELECT 1 FROM pg_subscription WHERE subname = 'sub_orders';")
+legacy_exists=$(psql_tuple "$SUB_HOST" orders_replica "SELECT 1 FROM pg_subscription WHERE subname = 'sub_orders';")
 if [ "$legacy_exists" = "1" ]; then
-  sub_psql orders_replica "ALTER SUBSCRIPTION sub_orders RENAME TO sub_orders_replica_orders;"
+  psql_c "$SUB_HOST" orders_replica "ALTER SUBSCRIPTION sub_orders RENAME TO sub_orders_replica_orders;"
   echo "sub_orders -> sub_orders_replica_orders olarak taşındı (eski isimlendirme)."
 fi
 
-# --- Kaynak: pub-db/orders veritabanında 5 tablo + publication ---
 for table in orders customers products invoices payments; do
-  ensure_publication "$table"
+  ensure_publication "$PUB_HOST" "$PUB_DB" "$table" "pub_$table"
 done
 
-# --- Hedefler: sub-db üzerinde 3 abone veritabanı ---
-ensure_database orders_replica
-ensure_database analytics_replica
-ensure_database audit_replica
+ensure_database "$SUB_HOST" orders_replica
+ensure_database "$SUB_HOST" analytics_replica
+ensure_database "$SUB_HOST" audit_replica
 
 # orders_replica: orders + customers (fan-out'un ilk ayağı) + products
-ensure_subscription orders_replica orders
-ensure_subscription orders_replica customers
-ensure_subscription orders_replica products
+ensure_subscription "$SUB_HOST" orders_replica sub_orders_replica_orders "$PUB_HOST" "$PUB_DB" pub_orders orders
+ensure_subscription "$SUB_HOST" orders_replica sub_orders_replica_customers "$PUB_HOST" "$PUB_DB" pub_customers customers
+ensure_subscription "$SUB_HOST" orders_replica sub_orders_replica_products "$PUB_HOST" "$PUB_DB" pub_products products
 
 # analytics_replica: orders (fan-out) + invoices
-ensure_subscription analytics_replica orders
-ensure_subscription analytics_replica invoices
+ensure_subscription "$SUB_HOST" analytics_replica sub_analytics_replica_orders "$PUB_HOST" "$PUB_DB" pub_orders orders
+ensure_subscription "$SUB_HOST" analytics_replica sub_analytics_replica_invoices "$PUB_HOST" "$PUB_DB" pub_invoices invoices
 
 # audit_replica: customers (fan-out) + payments
-ensure_subscription audit_replica customers
-ensure_subscription audit_replica payments
+ensure_subscription "$SUB_HOST" audit_replica sub_audit_replica_customers "$PUB_HOST" "$PUB_DB" pub_customers customers
+ensure_subscription "$SUB_HOST" audit_replica sub_audit_replica_payments "$PUB_HOST" "$PUB_DB" pub_payments payments
 
-echo "CDC test fixture hazır: 5 tablo/publication (orders, customers, products, invoices, payments)."
-echo "Fan-out: orders -> orders_replica + analytics_replica; customers -> orders_replica + audit_replica."
+echo "Senaryo 1 hazır: 5 tablo/publication (orders, customers, products, invoices, payments)."
+
+# ==============================================================================
+# Senaryo 2: zengin domain akışı (kurgusal kütüphane/katalog sektörü)
+# ==============================================================================
+
+CATALOG_DB=catalog
+
+ensure_database "$PUB_HOST" "$CATALOG_DB"
+
+# --- dom-catalog-api (pub-db/catalog): 8 publication ---
+ensure_publication "$PUB_HOST" "$CATALOG_DB" book dom_catalog_book_pub
+ensure_publication "$PUB_HOST" "$CATALOG_DB" author dom_catalog_author_pub
+ensure_publication "$PUB_HOST" "$CATALOG_DB" imprint dom_catalog_imprint_pub
+ensure_publication "$PUB_HOST" "$CATALOG_DB" category dom_catalog_category_pub
+ensure_publication "$PUB_HOST" "$CATALOG_DB" edition dom_catalog_edition_pub
+ensure_publication "$PUB_HOST" "$CATALOG_DB" isbn_record dom_catalog_isbn_record_pub
+ensure_publication "$PUB_HOST" "$CATALOG_DB" shelf_location dom_catalog_shelf_location_pub
+ensure_publication "$PUB_HOST" "$CATALOG_DB" review dom_catalog_review_pub
+
+# --- Hedef servislerin veritabanları (sub-db üzerinde) ---
+ensure_database "$SUB_HOST" notification
+ensure_database "$SUB_HOST" search_index
+ensure_database "$SUB_HOST" billing
+ensure_database "$SUB_HOST" analytics
+ensure_database "$SUB_HOST" recommendation
+
+# --- dom-lending-api (mid-db/lending, ayrı bir Postgres instance'ı): HEM hedef HEM kaynak ---
+# "lending" veritabanı mid-db'nin varsayılan (POSTGRES_DB) veritabanı olduğu için ayrıca
+# oluşturulması gerekmiyor. Kaynak tarafı: kendi publication'ını aşağı akışa yayınlar.
+ensure_publication "$MID_HOST" lending loan_event dom_lending_loan_event_pub
+
+# --- Diğer katalog hub fan-out'ları ---
+ensure_subscription "$SUB_HOST" search_index sub_search_index_book "$PUB_HOST" "$CATALOG_DB" dom_catalog_book_pub book
+ensure_subscription "$SUB_HOST" search_index sub_search_index_author "$PUB_HOST" "$CATALOG_DB" dom_catalog_author_pub author
+ensure_subscription "$SUB_HOST" search_index sub_search_index_imprint "$PUB_HOST" "$CATALOG_DB" dom_catalog_imprint_pub imprint
+ensure_subscription "$SUB_HOST" search_index sub_search_index_category "$PUB_HOST" "$CATALOG_DB" dom_catalog_category_pub category
+ensure_subscription "$SUB_HOST" search_index sub_search_index_edition "$PUB_HOST" "$CATALOG_DB" dom_catalog_edition_pub edition
+
+ensure_subscription "$SUB_HOST" recommendation sub_recommendation_book "$PUB_HOST" "$CATALOG_DB" dom_catalog_book_pub book
+ensure_subscription "$SUB_HOST" recommendation sub_recommendation_author "$PUB_HOST" "$CATALOG_DB" dom_catalog_author_pub author
+ensure_subscription "$SUB_HOST" recommendation sub_recommendation_category "$PUB_HOST" "$CATALOG_DB" dom_catalog_category_pub category
+ensure_subscription "$SUB_HOST" recommendation sub_recommendation_review "$PUB_HOST" "$CATALOG_DB" dom_catalog_review_pub review
+
+ensure_subscription "$SUB_HOST" notification sub_notification_book "$PUB_HOST" "$CATALOG_DB" dom_catalog_book_pub book
+ensure_subscription "$SUB_HOST" notification sub_notification_review "$PUB_HOST" "$CATALOG_DB" dom_catalog_review_pub review
+
+ensure_subscription "$SUB_HOST" billing sub_billing_imprint "$PUB_HOST" "$CATALOG_DB" dom_catalog_imprint_pub imprint
+ensure_subscription "$SUB_HOST" billing sub_billing_isbn_record "$PUB_HOST" "$CATALOG_DB" dom_catalog_isbn_record_pub isbn_record
+
+# --- dom-lending-api'nin kendi publication'ından aşağı akış ---
+ensure_subscription "$SUB_HOST" notification sub_notification_loan_event "$MID_HOST" lending dom_lending_loan_event_pub loan_event
+ensure_subscription "$SUB_HOST" billing sub_billing_loan_event "$MID_HOST" lending dom_lending_loan_event_pub loan_event
+ensure_subscription "$SUB_HOST" analytics sub_analytics_loan_event "$MID_HOST" lending dom_lending_loan_event_pub loan_event
+
+# --- dom-lending-api'nin KENDİ katalog abonelikleri (hedef tarafı) ---
+ensure_subscription "$MID_HOST" lending sub_lending_edition "$PUB_HOST" "$CATALOG_DB" dom_catalog_edition_pub edition
+ensure_subscription "$MID_HOST" lending sub_lending_isbn_record "$PUB_HOST" "$CATALOG_DB" dom_catalog_isbn_record_pub isbn_record
+ensure_subscription "$MID_HOST" lending sub_lending_shelf_location "$PUB_HOST" "$CATALOG_DB" dom_catalog_shelf_location_pub shelf_location
+
+echo "Senaryo 2 hazır: dom-catalog-api (8 publication) + dom-lending-api (hem hedef hem kaynak, 1 publication)."
+echo "Hedefler: dom-lending-api, dom-notification-api, dom-search-index-api, dom-billing-api, dom-analytics-api, dom-recommendation-api."

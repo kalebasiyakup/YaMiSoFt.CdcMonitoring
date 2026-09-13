@@ -12,15 +12,6 @@ services:
       timeout: 3s
       retries: 20
 
-  # Gerçek bir SMTP sunucusu olmadan e-posta bildirimlerini (FR-10) doğrulamak
-  # için: Mailpit gönderilen tüm e-postaları yakalar, http://localhost:8025
-  # üzerinde bir web arayüzünde gösterir. Prod'da yerini kurumsal SMTP alır.
-  mailpit:
-    image: axllent/mailpit:latest
-    ports:
-      - "8025:8025"
-      - "1025:1025"
-
   app:
     build:
       context: .

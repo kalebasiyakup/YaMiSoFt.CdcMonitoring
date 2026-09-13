@@ -20,10 +20,12 @@ export function render(containerId, nodes, edges, dotNetRef) {
             font: { multi: "html", size: 14 }
         },
         groups: {
-            // Kaynak: yayını yapan bağlantı (DB). Hub: publication/stream. Target: abone bağlantı.
+            // Kaynak (pub): yayını yapan bağlantı (DB) — mavi. Hub: publication/stream — mor.
+            // Target (sub): abone bağlantı — turuncu/terracotta. Üçü de birbirinden ve
+            // kenarların sağlık renklerinden (yeşil/sarı/kırmızı/gri) net şekilde ayrışır.
             source: { shape: "box", color: { background: "#eef3fb", border: "#4a76c4" } },
             hub: { shape: "ellipse", color: { background: "#f3ecfc", border: "#8a63d2" } },
-            target: { shape: "box", color: { background: "#eafaf4", border: "#2fa88f" } }
+            target: { shape: "box", color: { background: "#fdf0e6", border: "#c2703d" } }
         },
         edges: {
             arrows: "to",

@@ -398,3 +398,27 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+.info-tooltip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+    color: #fff;
+    font-size: 11px;
+    font-style: italic;
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1;
+    cursor: help;
+    user-select: none;
+}
+
+.info-tooltip:hover,
+.info-tooltip:focus {
+    background: var(--color-primary);
+    outline: none;
+}

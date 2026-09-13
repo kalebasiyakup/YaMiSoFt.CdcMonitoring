@@ -68,17 +68,22 @@ Docker Compose ile gerçek PostgreSQL logical replication üzerinden uçtan uca 
 # Metadata DB + kaynak/hedef Postgres (wal_level=logical) + app + Mailpit'i ayağa kaldır.
 # Tek komut, elle hiçbir adım gerekmeden uçtan uca bir test ortamı hazırlar:
 #  - cdc-fixture servisi pub-db/sub-db sağlıklı olur olmaz gerçek publication/subscription'ları
-#    kurar (DB ekibinin gerçek ortamda yapacağı işi simüle eder): pub-db/orders veritabanında
-#    5 tablo/publication (orders, customers, products, invoices, payments) ve sub-db üzerinde
-#    3 hedef veritabanı (orders_replica, analytics_replica, audit_replica); orders ve customers
-#    ikişer hedefe abone edilerek fan-out (bir publication'a birden fazla subscription) senaryosunu
-#    gösterir.
-#  - app, Development ortamında açılışta bu 4 bağlantıyı (pub-db + 3 sub-db veritabanı)
-#    Connections ekranına otomatik kaydeder (Program.cs, Seed:LocalCdcFixtureConnections).
+#    kurar (DB ekibinin gerçek ortamda yapacağı işi simüle eder), iki senaryo halinde:
+#     1) Basit: pub-db/orders'ta 5 tablo/publication (orders, customers, products, invoices,
+#        payments); orders ve customers ikişer hedefe abone edilerek fan-out gösterir.
+#     2) Zengin (kurgusal bir kütüphane/katalog domaini): dom-catalog-api 8 publication
+#        yayınlar; dom-lending-api (ayrı bir Postgres instance'ı olan mid-db üzerinde —
+#        bir düğümün aynı sunucuda hem hedef hem kaynak olması CREATE SUBSCRIPTION'ı
+#        kendi kendine kilitler) bunlardan bazılarına HEM abone olur HEM kendi
+#        publication'ını aşağı akışa yayınlar (hem hedef hem kaynak); 5 hedef servis
+#        (notification, search-index, billing, analytics, recommendation) farklı
+#        kombinasyonlarla abone olur.
+#  - app, Development ortamında açılışta bu bağlantıların tamamını Connections ekranına
+#    otomatik kaydeder (Program.cs, Seed:LocalCdcFixtureConnections).
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-Sonra `http://localhost:5299/topology` üzerinden CDC ilişkilerinin otomatik keşfedildiğini — `orders` ve `customers` publication'larının iki ayrı hedefe dallandığı (fan-out) hiyerarşik topolojiyi — ve e-posta bildirimlerinin `http://localhost:8025` (Mailpit) üzerinden gerçek SMTP protokolüyle geldiğini gözlemleyebilirsiniz.
+Sonra `http://localhost:5299/topology` üzerinden CDC ilişkilerinin otomatik keşfedildiğini — çoğu publication'ın iki-üç ayrı hedefe dallandığı (fan-out) hiyerarşik topolojiyi — ve e-posta bildirimlerinin `http://localhost:8025` (Mailpit) üzerinden gerçek SMTP protokolüyle geldiğini gözlemleyebilirsiniz.
 
 `scripts/setup-local-cdc-test.sh`, yalnızca eski/tekil (tek tablo) senaryoyu host'tan `docker compose exec` ile elle tekrarlamak isteyenler için tutulur; normal akışta gerekmez — `cdc-fixture` servisi zaten yukarıdaki genişletilmiş kurulumu otomatik yapar.
 
@@ -101,3 +106,7 @@ Uygulama mevcut Kubernetes/Helm standardına uygun şekilde `deploy/helm/cdc-mon
 - Kafka, Strimzi veya Debezium — CDC tamamen PostgreSQL'in yerleşik mantıksal replikasyonu ile yürütülür.
 - PostgreSQL'de publication/subscription/replication slot kurulumu — bunların önceden yapılandırılmış olduğu varsayılır, uygulama tarafından oluşturulmaz.
 - Slack veya benzeri bir sohbet entegrasyonu — bildirim kanalı yalnızca e-postadır.
+
+## Lisans
+
+[Apache License 2.0](./LICENSE) — bkz. `LICENSE` dosyası.

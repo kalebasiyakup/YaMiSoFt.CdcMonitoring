@@ -106,4 +106,15 @@ static async Task SeedLocalCdcFixtureConnectionsAsync(IServiceProvider services)
     await EnsureAsync("sub-db (orders_replica)", "sub-db", "orders_replica");
     await EnsureAsync("sub-db (analytics_replica)", "sub-db", "analytics_replica");
     await EnsureAsync("sub-db (audit_replica)", "sub-db", "audit_replica");
+
+    // Zengin domain akışı senaryosu (bkz. scripts/cdc-fixture-entrypoint.sh Senaryo 2):
+    // dom-lending-api hem hedef hem kaynak rolündedir; bu yüzden ayrı bir Postgres
+    // instance'ında (mid-db) barındırılır — bkz. o script'teki deadlock notu.
+    await EnsureAsync("dom-catalog-api", "pub-db", "catalog");
+    await EnsureAsync("dom-lending-api", "mid-db", "lending");
+    await EnsureAsync("dom-notification-api", "sub-db", "notification");
+    await EnsureAsync("dom-search-index-api", "sub-db", "search_index");
+    await EnsureAsync("dom-billing-api", "sub-db", "billing");
+    await EnsureAsync("dom-analytics-api", "sub-db", "analytics");
+    await EnsureAsync("dom-recommendation-api", "sub-db", "recommendation");
 }

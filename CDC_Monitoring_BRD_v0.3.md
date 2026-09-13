@@ -2,7 +2,7 @@
 ## PostgreSQL Bağlantı Kayıt Defteri ve CDC Takip Uygulaması
 
 - **Proje Kodu:** CDC-MON-2026
-- **Hazırlayan:** Yakup Kalebaşı — Yazılım Çözümleri Mimarı, Edenred Turkey
+- **Hazırlayan:** Yakup Kalebaşı — Yazılım Çözümleri Mimarı, YaMiSoFt
 - **Tarih:** 12.09.2026
 - **Durum:** Taslak — v0.3
 
