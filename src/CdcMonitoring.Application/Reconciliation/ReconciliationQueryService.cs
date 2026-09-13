@@ -1,4 +1,6 @@
 using CdcMonitoring.Application.Abstractions;
+using CdcMonitoring.Application.Common;
+using CdcMonitoring.Domain.Entities;
 
 namespace CdcMonitoring.Application.Reconciliation;
 
@@ -9,6 +11,19 @@ public class ReconciliationQueryService(
     public async Task<List<ReconciliationResultSummary>> GetRecentAsync(int take = 100, CancellationToken ct = default)
     {
         var recent = await results.GetRecentAsync(take, ct);
+        return await ToSummariesAsync(recent, ct);
+    }
+
+    public async Task<PagedResult<ReconciliationResultSummary>> GetPagedAsync(
+        ReconciliationResultFilter filter, int page, int pageSize, CancellationToken ct = default)
+    {
+        var (items, totalCount) = await results.GetPagedAsync(filter, page, pageSize, ct);
+        var summaries = await ToSummariesAsync(items, ct);
+        return new PagedResult<ReconciliationResultSummary>(summaries, totalCount, page, pageSize);
+    }
+
+    private async Task<List<ReconciliationResultSummary>> ToSummariesAsync(List<ReconciliationResult> recent, CancellationToken ct)
+    {
         var summaries = new List<ReconciliationResultSummary>(recent.Count);
 
         foreach (var r in recent)

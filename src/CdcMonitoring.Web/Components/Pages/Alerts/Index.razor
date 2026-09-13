@@ -9,13 +9,45 @@
 
 <p><em>Sistem hiçbir koşulda otomatik düzeltici aksiyon almaz — burası yalnızca gözlem ve bildirim geçmişidir.</em></p>
 
+<div class="row mb-3 g-2 align-items-end">
+    <div class="col-auto">
+        <label class="form-label mb-1">Önem</label>
+        <select class="form-select form-select-sm" @bind="_severityFilter" @bind:after="ApplyFilterAsync">
+            <option value="">Tümü</option>
+            <option value="@AlertSeverity.Critical">Kritik</option>
+            <option value="@AlertSeverity.Warning">Uyarı</option>
+            <option value="@AlertSeverity.Info">Bilgi</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">Tür</label>
+        <select class="form-select form-select-sm" @bind="_typeFilter" @bind:after="ApplyFilterAsync">
+            <option value="">Tümü</option>
+            <option value="@AlertType.SlotInactive">Slot İnaktif</option>
+            <option value="@AlertType.WalCritical">WAL Kritik</option>
+            <option value="@AlertType.SubscriptionError">Subscription Hatası</option>
+            <option value="@AlertType.LagWarning">Lag Uyarısı</option>
+            <option value="@AlertType.HealthCheckFailed">Health Check Başarısız</option>
+            <option value="@AlertType.ReconciliationMismatch">Veri Tutarsızlığı</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">Durum</label>
+        <select class="form-select form-select-sm" @bind="_statusFilter" @bind:after="ApplyFilterAsync">
+            <option value="">Tümü</option>
+            <option value="active">Aktif</option>
+            <option value="resolved">Çözüldü</option>
+        </select>
+    </div>
+</div>
+
 @if (_alerts is null)
 {
     <p><em>Yükleniyor...</em></p>
 }
 else if (_alerts.Count == 0)
 {
-    <p><em>Henüz alarm oluşmadı.</em></p>
+    <p><em>Filtreyle eşleşen alarm bulunamadı.</em></p>
 }
 else
 {
@@ -46,14 +78,53 @@ else
             }
         </tbody>
     </table>
+
+    <Pagination Page="_page" TotalPages="_totalPages" TotalCount="_totalCount" OnPageChange="ChangePageAsync" />
 }
 
 @code {
-    private List<AlertEventSummary>? _alerts;
+    private const int PageSize = 20;
 
-    protected override async Task OnInitializedAsync()
+    private List<AlertEventSummary>? _alerts;
+    private int _page = 1;
+    private int _totalPages = 1;
+    private int _totalCount;
+
+    private string _severityFilter = "";
+    private string _typeFilter = "";
+    private string _statusFilter = "";
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task ApplyFilterAsync()
     {
-        _alerts = await AlertQuery.GetRecentAsync();
+        _page = 1;
+        return LoadAsync();
+    }
+
+    private Task ChangePageAsync(int newPage)
+    {
+        _page = newPage;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        AlertSeverity? severity = Enum.TryParse<AlertSeverity>(_severityFilter, out var s) ? s : null;
+        AlertType? type = Enum.TryParse<AlertType>(_typeFilter, out var t) ? t : null;
+        bool? onlyActive = _statusFilter switch
+        {
+            "active" => true,
+            "resolved" => false,
+            _ => null
+        };
+
+        var filter = new AlertEventFilter(type, severity, onlyActive);
+        var result = await AlertQuery.GetPagedAsync(filter, _page, PageSize);
+
+        _alerts = result.Items;
+        _totalCount = result.TotalCount;
+        _totalPages = result.TotalPages;
     }
 
     private static string TypeText(AlertType type) => type switch

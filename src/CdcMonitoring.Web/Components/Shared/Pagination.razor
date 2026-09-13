@@ -1,0 +1,26 @@
+@if (TotalPages > 1)
+{
+    <nav class="d-flex align-items-center gap-2 mt-2" aria-label="Sayfalama">
+        <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(Page <= 1)" @onclick="() => ChangePageAsync(Page - 1)">
+            &laquo; Önceki
+        </button>
+        <span>Sayfa @Page / @TotalPages</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(Page >= TotalPages)" @onclick="() => ChangePageAsync(Page + 1)">
+            Sonraki &raquo;
+        </button>
+        <span class="text-muted ms-2">(@TotalCount.ToString("N0") kayıt)</span>
+    </nav>
+}
+else if (TotalCount > 0)
+{
+    <p class="text-muted mt-2 mb-0">@TotalCount.ToString("N0") kayıt</p>
+}
+
+@code {
+    [Parameter] public int Page { get; set; }
+    [Parameter] public int TotalPages { get; set; }
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public EventCallback<int> OnPageChange { get; set; }
+
+    private Task ChangePageAsync(int newPage) => OnPageChange.InvokeAsync(newPage);
+}

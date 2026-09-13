@@ -1,4 +1,5 @@
 using CdcMonitoring.Application.Abstractions;
+using CdcMonitoring.Application.Reconciliation;
 using CdcMonitoring.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,4 +17,22 @@ public class ReconciliationResultRepository(CdcMonitoringDbContext db) : IReconc
 
     public Task<int> DeleteOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default) =>
         db.ReconciliationResults.Where(r => r.RunAt < cutoff).ExecuteDeleteAsync(ct);
+
+    public async Task<(List<ReconciliationResult> Items, int TotalCount)> GetPagedAsync(
+        ReconciliationResultFilter filter, int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = db.ReconciliationResults.AsQueryable();
+
+        if (filter.IsMatch is { } isMatch)
+            query = query.Where(r => r.IsMatch == isMatch);
+
+        var totalCount = await query.CountAsync(ct);
+        var items = await query
+            .OrderByDescending(r => r.RunAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
 }

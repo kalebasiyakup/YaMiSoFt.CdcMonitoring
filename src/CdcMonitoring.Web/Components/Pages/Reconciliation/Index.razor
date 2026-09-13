@@ -8,13 +8,24 @@
 
 <p><em>Onaylanmış (Onaylandı/Manuel tanımlandı) CDC ilişkileri için haftalık kaynak-hedef satır sayısı/checksum karşılaştırması — salt-okuma.</em></p>
 
+<div class="row mb-3 g-2 align-items-end">
+    <div class="col-auto">
+        <label class="form-label mb-1">Durum</label>
+        <select class="form-select form-select-sm" @bind="_statusFilter" @bind:after="ApplyFilterAsync">
+            <option value="">Tümü</option>
+            <option value="match">Eşleşti</option>
+            <option value="mismatch">Tutarsız</option>
+        </select>
+    </div>
+</div>
+
 @if (_results is null)
 {
     <p><em>Yükleniyor...</em></p>
 }
 else if (_results.Count == 0)
 {
-    <p><em>Henüz veri tutarlılık kontrolü çalışmadı.</em></p>
+    <p><em>Filtreyle eşleşen kayıt bulunamadı.</em></p>
 }
 else
 {
@@ -56,13 +67,48 @@ else
             }
         </tbody>
     </table>
+
+    <Pagination Page="_page" TotalPages="_totalPages" TotalCount="_totalCount" OnPageChange="ChangePageAsync" />
 }
 
 @code {
-    private List<ReconciliationResultSummary>? _results;
+    private const int PageSize = 20;
 
-    protected override async Task OnInitializedAsync()
+    private List<ReconciliationResultSummary>? _results;
+    private int _page = 1;
+    private int _totalPages = 1;
+    private int _totalCount;
+
+    private string _statusFilter = "";
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task ApplyFilterAsync()
     {
-        _results = await ReconciliationQuery.GetRecentAsync();
+        _page = 1;
+        return LoadAsync();
+    }
+
+    private Task ChangePageAsync(int newPage)
+    {
+        _page = newPage;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        bool? isMatch = _statusFilter switch
+        {
+            "match" => true,
+            "mismatch" => false,
+            _ => null
+        };
+
+        var filter = new ReconciliationResultFilter(isMatch);
+        var result = await ReconciliationQuery.GetPagedAsync(filter, _page, PageSize);
+
+        _results = result.Items;
+        _totalCount = result.TotalCount;
+        _totalPages = result.TotalPages;
     }
 }
