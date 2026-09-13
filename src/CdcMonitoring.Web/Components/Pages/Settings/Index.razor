@@ -171,11 +171,27 @@ else
 
         <button type="submit" class="btn btn-primary mt-2">Kaydet</button>
 
+        @if (_activeTab == "email")
+        {
+            <button type="button" class="btn btn-outline-secondary mt-2 ms-2" disabled="@_isTestingEmail" @onclick="TestEmailAsync">
+                @(_isTestingEmail ? "Gönderiliyor..." : "E-postayı Test Et")
+            </button>
+        }
+
         @if (_savedAt is not null)
         {
             <span class="text-success ms-3">Kaydedildi (@_savedAt.Value.ToLocalTime().ToString("T")).</span>
         }
     </EditForm>
+
+    @if (_emailTestResult is { Success: true })
+    {
+        <div class="alert alert-success mt-3">Test e-postası gönderildi — alıcıların gelen kutusunu (ve spam klasörünü) kontrol edin.</div>
+    }
+    else if (_emailTestResult is { Success: false })
+    {
+        <div class="alert alert-danger mt-3">Test e-postası gönderilemedi: @_emailTestResult.ErrorMessage</div>
+    }
 }
 
 @if (_errorMessage is not null)
@@ -188,6 +204,8 @@ else
     private string? _errorMessage;
     private DateTimeOffset? _savedAt;
     private string _activeTab = "healthcheck";
+    private bool _isTestingEmail;
+    private EmailTestResult? _emailTestResult;
 
     protected override async Task OnInitializedAsync()
     {
@@ -234,6 +252,35 @@ else
         catch (Exception ex)
         {
             _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task TestEmailAsync()
+    {
+        if (_model is null) return;
+        _emailTestResult = null;
+        _errorMessage = null;
+        _isTestingEmail = true;
+
+        try
+        {
+            _emailTestResult = await SettingsService.TestEmailAsync(new TestEmailRequest(
+                _model.SmtpHost,
+                _model.SmtpPort,
+                _model.SmtpUseStartTls,
+                _model.SmtpUsername,
+                _model.NewSmtpPassword,
+                _model.FromAddress,
+                _model.FromDisplayName,
+                SplitCsv(_model.Recipients)));
+        }
+        catch (Exception ex)
+        {
+            _emailTestResult = new EmailTestResult(false, ex.Message);
+        }
+        finally
+        {
+            _isTestingEmail = false;
         }
     }
 

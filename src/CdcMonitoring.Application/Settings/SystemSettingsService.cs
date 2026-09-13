@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CdcMonitoring.Application.Abstractions;
+using CdcMonitoring.Application.Common;
 using CdcMonitoring.Domain.Entities;
 using CdcMonitoring.Domain.Enums;
 
@@ -8,6 +9,7 @@ namespace CdcMonitoring.Application.Settings;
 public class SystemSettingsService(
     ISystemSettingsRepository settings,
     ISmtpPasswordProtector smtpPasswordProtector,
+    IEmailNotifier emailNotifier,
     IAuditLogRepository auditLog,
     ICurrentUserAccessor currentUser,
     IClock clock)
@@ -67,6 +69,35 @@ public class SystemSettingsService(
         }, ct);
 
         return ToDto(s);
+    }
+
+    // Kaydetmeden önce (Ayarlar > E-posta ekranı) SMTP yapılandırmasını gerçek bir test
+    // e-postasıyla doğrulamak için (FR-10 ile aynı prensip: FR-03'ün bağlantı testi
+    // eşdeğeri). Kalıcı hiçbir kayıt oluşturmaz.
+    public async Task<EmailTestResult> TestEmailAsync(TestEmailRequest request, CancellationToken ct = default)
+    {
+        string password;
+        if (!string.IsNullOrWhiteSpace(request.NewSmtpPassword))
+        {
+            password = request.NewSmtpPassword;
+        }
+        else
+        {
+            var current = await settings.GetAsync(ct);
+            password = string.IsNullOrEmpty(current.EncryptedSmtpPassword)
+                ? string.Empty
+                : smtpPasswordProtector.Unprotect(current.EncryptedSmtpPassword);
+        }
+
+        return await emailNotifier.SendTestEmailAsync(new EmailTestRequest(
+            request.SmtpHost,
+            request.SmtpPort,
+            request.SmtpUseStartTls,
+            request.SmtpUsername,
+            password,
+            request.FromAddress,
+            request.FromDisplayName,
+            request.Recipients), ct);
     }
 
     // SmtpPassword bilinçli olarak dışarıda bırakılır: audit kaydı hiçbir zaman

@@ -49,3 +49,16 @@ public record UpdateSystemSettingsRequest(
     string FromAddress,
     string FromDisplayName,
     List<string> Recipients);
+
+// Kaydetmeden önce (Ayarlar > E-posta) mevcut form değerleriyle test e-postası göndermek için.
+// NewSmtpPassword boşsa ve daha önce bir parola kaydedilmişse, o parola kullanılır
+// (Connections/TestConnectionRequest'teki ExistingConnectionId düşüşüyle aynı prensip).
+public record TestEmailRequest(
+    string SmtpHost,
+    int SmtpPort,
+    bool SmtpUseStartTls,
+    string? SmtpUsername,
+    string? NewSmtpPassword,
+    string FromAddress,
+    string FromDisplayName,
+    List<string> Recipients);
