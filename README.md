@@ -66,14 +66,21 @@ Docker Compose ile gerçek PostgreSQL logical replication üzerinden uçtan uca 
 
 ```bash
 # Metadata DB + kaynak/hedef Postgres (wal_level=logical) + app + Mailpit'i ayağa kaldır.
-# cdc-fixture servisi, pub-db/sub-db sağlıklı olur olmaz test amaçlı publication/subscription'ı
-# (DB ekibinin gerçek ortamda yapacağı işi simüle eder) otomatik kurar — ayrıca bir şey
-# çalıştırmaya gerek yok. (Aynı kurulumu tekil olarak elle tekrarlamak isterseniz
-# ./scripts/setup-local-cdc-test.sh hâlâ kullanılabilir.)
+# Tek komut, elle hiçbir adım gerekmeden uçtan uca bir test ortamı hazırlar:
+#  - cdc-fixture servisi pub-db/sub-db sağlıklı olur olmaz gerçek publication/subscription'ları
+#    kurar (DB ekibinin gerçek ortamda yapacağı işi simüle eder): pub-db/orders veritabanında
+#    5 tablo/publication (orders, customers, products, invoices, payments) ve sub-db üzerinde
+#    3 hedef veritabanı (orders_replica, analytics_replica, audit_replica); orders ve customers
+#    ikişer hedefe abone edilerek fan-out (bir publication'a birden fazla subscription) senaryosunu
+#    gösterir.
+#  - app, Development ortamında açılışta bu 4 bağlantıyı (pub-db + 3 sub-db veritabanı)
+#    Connections ekranına otomatik kaydeder (Program.cs, Seed:LocalCdcFixtureConnections).
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-Sonra `http://localhost:5299` üzerinden bağlantıları kaydedip (Host: `pub-db` / `sub-db`) CDC ilişkisinin otomatik keşfedildiğini, `/topology` ekranında göründüğünü ve e-posta bildirimlerinin `http://localhost:8025` (Mailpit) üzerinden gerçek SMTP protokolüyle geldiğini gözlemleyebilirsiniz.
+Sonra `http://localhost:5299/topology` üzerinden CDC ilişkilerinin otomatik keşfedildiğini — `orders` ve `customers` publication'larının iki ayrı hedefe dallandığı (fan-out) hiyerarşik topolojiyi — ve e-posta bildirimlerinin `http://localhost:8025` (Mailpit) üzerinden gerçek SMTP protokolüyle geldiğini gözlemleyebilirsiniz.
+
+`scripts/setup-local-cdc-test.sh`, yalnızca eski/tekil (tek tablo) senaryoyu host'tan `docker compose exec` ile elle tekrarlamak isteyenler için tutulur; normal akışta gerekmez — `cdc-fixture` servisi zaten yukarıdaki genişletilmiş kurulumu otomatik yapar.
 
 ```bash
 docker compose -f docker-compose.local.yml down -v   # temizlik
