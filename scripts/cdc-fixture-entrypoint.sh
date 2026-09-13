@@ -47,6 +47,21 @@ until PGPASSWORD=postgres pg_isready -h "$MID_HOST" -U postgres >/dev/null 2>&1;
 psql_c() { PGPASSWORD=postgres psql -h "$1" -U postgres -d "$2" -v ON_ERROR_STOP=1 -c "$3"; }
 psql_tuple() { PGPASSWORD=postgres psql -h "$1" -U postgres -d "$2" -tAc "$3"; }
 
+# --- Tekrar çalıştırmayı tamamen atlama işareti -------------------------------
+# Alttaki her adım zaten idempotent (var olup olmadığını kontrol eder), ama bu
+# container'ların kalıcı volume'ü olmadığından `docker compose up --build`
+# her çağrıldığında cdc-fixture yeniden oluşabiliyor ve script'in tamamı baştan
+# çalışır — onlarca "zaten mevcut, atlanıyor" kontrolü için gereksiz yere pub-db/
+# sub-db/mid-db'ye tekrar tekrar bağlanır. pub-db/orders kalıcıysa (yalnızca
+# container yeniden oluştu, veri silinmediyse) bu işaret script'in tamamını
+# saniyeler içinde atlamayı sağlar.
+psql_c "$PUB_HOST" "$PUB_DB" "CREATE TABLE IF NOT EXISTS public._cdc_fixture_marker (id int PRIMARY KEY, completed_at timestamptz NOT NULL);"
+already_done=$(psql_tuple "$PUB_HOST" "$PUB_DB" "SELECT 1 FROM public._cdc_fixture_marker WHERE id = 1;")
+if [ "$already_done" = "1" ]; then
+  echo "cdc-fixture daha önce tamamlanmış (pub-db/orders kalıcı), kurulum atlanıyor."
+  exit 0
+fi
+
 ensure_database() {
   # $1=host $2=db
   exists=$(psql_tuple "$1" postgres "SELECT 1 FROM pg_database WHERE datname = '$2';")
@@ -175,3 +190,6 @@ ensure_subscription "$MID_HOST" lending sub_lending_shelf_location "$PUB_HOST" "
 
 echo "Senaryo 2 hazır: dom-catalog-api (8 publication) + dom-lending-api (hem hedef hem kaynak, 1 publication)."
 echo "Hedefler: dom-lending-api, dom-notification-api, dom-search-index-api, dom-billing-api, dom-analytics-api, dom-recommendation-api."
+
+psql_c "$PUB_HOST" "$PUB_DB" "INSERT INTO public._cdc_fixture_marker (id, completed_at) VALUES (1, now()) ON CONFLICT (id) DO UPDATE SET completed_at = now();"
+echo "cdc-fixture kurulumu tamamlandı ve işaretlendi — bir sonraki 'up' bu adımların tamamını atlayacak."
