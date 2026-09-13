@@ -32,6 +32,9 @@ public class FakePostgresInspector : IPostgresInspector
     public Task<List<PublicationTableInfo>> GetPublicationTablesAsync(PgConnection connection, string plaintextPassword, IReadOnlyList<string> publicationNames, CancellationToken ct = default) =>
         Task.FromResult(PublicationTables.GetValueOrDefault(connection.Id, []));
 
-    public Task<TableChecksum> GetTableChecksumAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, CancellationToken ct = default) =>
+    public Task<List<string>> GetTableColumnsAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, CancellationToken ct = default) =>
+        Task.FromResult(new List<string>());
+
+    public Task<TableChecksum> GetTableChecksumAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, IReadOnlyList<string> columnNames, CancellationToken ct = default) =>
         Task.FromResult(TableChecksums.GetValueOrDefault((connection.Id, schemaName, tableName), new TableChecksum(0, "0")));
 }

@@ -92,8 +92,12 @@ public class ReconciliationService(
 
         foreach (var table in tables)
         {
-            var sourceStats = await inspector.GetTableChecksumAsync(source, sourcePassword, table.SchemaName, table.TableName, ct);
-            var targetStats = await inspector.GetTableChecksumAsync(target, targetPassword, table.SchemaName, table.TableName, ct);
+            // Kolon listesi kaynaktan alınır ve hem kaynak hem hedef sorgusuna aynen geçirilir:
+            // hedef tarafın kendi eklediği fazladan bir kolon (ör. bookkeeping alanı) bu sayede
+            // checksum'ı asla etkilemez — yalnızca gerçekten replike edilen kolonlar karşılaştırılır.
+            var columns = await inspector.GetTableColumnsAsync(source, sourcePassword, table.SchemaName, table.TableName, ct);
+            var sourceStats = await inspector.GetTableChecksumAsync(source, sourcePassword, table.SchemaName, table.TableName, columns, ct);
+            var targetStats = await inspector.GetTableChecksumAsync(target, targetPassword, table.SchemaName, table.TableName, columns, ct);
 
             totalSourceRows += sourceStats.RowCount;
             totalTargetRows += targetStats.RowCount;

@@ -25,6 +25,7 @@ public class ReadOnlyGuardTests
     [InlineData(nameof(NpgsqlPostgresInspector.SubscriptionStatsQuery))]
     [InlineData(nameof(NpgsqlPostgresInspector.ReplicationStatsQuery))]
     [InlineData(nameof(NpgsqlPostgresInspector.PublicationTablesQuery))]
+    [InlineData(nameof(NpgsqlPostgresInspector.TableColumnsQuery))]
     public void NpgsqlPostgresInspector_queries_are_select_only(string constantName)
     {
         var field = typeof(NpgsqlPostgresInspector).GetField(constantName,
@@ -39,7 +40,7 @@ public class ReadOnlyGuardTests
     {
         var method = typeof(NpgsqlPostgresInspector).GetMethod("BuildTableChecksumQuery",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-        var query = (string)method.Invoke(null, ["\"public\"", "\"orders\""])!;
+        var query = (string)method.Invoke(null, ["\"public\"", "\"orders\"", new List<string> { "\"id\"", "\"name\"" }])!;
 
         AssertSelectOnly(query);
     }

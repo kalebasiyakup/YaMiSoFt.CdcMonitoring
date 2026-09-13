@@ -48,15 +48,25 @@ public class NpgsqlPostgresInspector : IPostgresInspector
         WHERE pubname = ANY(@pubnames);
         """;
 
+    internal const string TableColumnsQuery = """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = @schema AND table_name = @table
+        ORDER BY ordinal_position;
+        """;
+
     /// <summary>
     /// Reconciliation için sıra bağımsız (order-independent) checksum: her satırın
     /// metin gösteriminin md5'inin ilk 64 bit'i toplanır. Salt-okuma, DDL/DML içermez (FR-14).
+    /// Kolon listesi (quotedColumns) her iki tarafta da AYNEN aynı (kaynaktan alınmış) olmalıdır —
+    /// aksi halde hedefteki fazladan bir kolon (ör. hedef servisin kendi eklediği bir bookkeeping
+    /// alanı) her satırın metin gösterimini değiştirip checksum'ı her zaman uyuşmaz hale getirir.
     /// </summary>
-    internal static string BuildTableChecksumQuery(string quotedSchema, string quotedTable) => $"""
+    internal static string BuildTableChecksumQuery(string quotedSchema, string quotedTable, IReadOnlyList<string> quotedColumns) => $"""
         SELECT
             count(*)::bigint AS row_count,
             COALESCE(sum(('x' || substr(md5(t::text), 1, 16))::bit(64)::bigint), 0)::text AS checksum
-        FROM {quotedSchema}.{quotedTable} t;
+        FROM (SELECT {string.Join(", ", quotedColumns)} FROM {quotedSchema}.{quotedTable}) t;
         """;
 
     public async Task<List<PublicationInfo>> GetPublicationsAsync(PgConnection connection, string plaintextPassword, CancellationToken ct = default)
@@ -161,10 +171,25 @@ public class NpgsqlPostgresInspector : IPostgresInspector
         return result;
     }
 
-    public async Task<TableChecksum> GetTableChecksumAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, CancellationToken ct = default)
+    public async Task<List<string>> GetTableColumnsAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, CancellationToken ct = default)
     {
         await using var conn = await OpenAsync(connection, plaintextPassword, ct);
-        var query = BuildTableChecksumQuery(QuoteIdentifier(schemaName), QuoteIdentifier(tableName));
+        await using var cmd = new NpgsqlCommand(TableColumnsQuery, conn);
+        cmd.Parameters.AddWithValue("schema", schemaName);
+        cmd.Parameters.AddWithValue("table", tableName);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+
+        var result = new List<string>();
+        while (await reader.ReadAsync(ct))
+            result.Add(reader.GetString(0));
+        return result;
+    }
+
+    public async Task<TableChecksum> GetTableChecksumAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, IReadOnlyList<string> columnNames, CancellationToken ct = default)
+    {
+        await using var conn = await OpenAsync(connection, plaintextPassword, ct);
+        var quotedColumns = columnNames.Select(QuoteIdentifier).ToList();
+        var query = BuildTableChecksumQuery(QuoteIdentifier(schemaName), QuoteIdentifier(tableName), quotedColumns);
         await using var cmd = new NpgsqlCommand(query, conn);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
 
