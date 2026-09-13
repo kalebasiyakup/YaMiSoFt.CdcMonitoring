@@ -1,5 +1,6 @@
 @page "/reconciliation"
 @rendermode InteractiveServer
+@inherits TimeZoneAwareComponentBase
 @inject ReconciliationQueryService ReconciliationQuery
 
 <PageTitle>Veri Tutarlılık Kontrolü</PageTitle>
@@ -49,7 +50,7 @@ else
                     <td>@r.SourceConnectionName</td>
                     <td>@r.TargetConnectionName</td>
                     <td>@r.SlotName</td>
-                    <td>@r.RunAt.ToLocalTime().ToString("g")</td>
+                    <td>@FormatLocal(r.RunAt)</td>
                     <td>@(r.SourceRowCount?.ToString("N0") ?? "-")</td>
                     <td>@(r.TargetRowCount?.ToString("N0") ?? "-")</td>
                     <td>

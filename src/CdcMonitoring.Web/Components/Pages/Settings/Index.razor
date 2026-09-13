@@ -1,5 +1,6 @@
 @page "/settings"
 @rendermode InteractiveServer
+@inherits TimeZoneAwareComponentBase
 @inject SystemSettingsService SettingsService
 
 <PageTitle>Ayarlar</PageTitle>
@@ -200,7 +201,7 @@ else
 
         @if (_savedAt is not null)
         {
-            <span class="text-success ms-3">Kaydedildi (@_savedAt.Value.ToLocalTime().ToString("T")).</span>
+            <span class="text-success ms-3">Kaydedildi (@FormatLocal(_savedAt.Value, "T")).</span>
         }
     </EditForm>
 

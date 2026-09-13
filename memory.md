@@ -241,6 +241,17 @@
   özelleştirmeleri dahil) sıfırlanması demektir — normal, ama beklenmedik "verim nereye gitti"
   sorularına yol açabilir.
 
+- **Blazor Server'da `DateTimeOffset.ToLocalTime()` tarayıcının değil sunucunun saat dilimini
+  kullanır** — kullanıcı `/settings` → Görünüm'den tr-TR seçse bile saat kaymaz, çünkü culture
+  yalnızca biçimi (gg.aa.yyyy vb.) etkiler, saat dilimini değil; render sunucu tarafında
+  çalıştığından "yerel saat" sunucunun OS saat dilimidir (çoğu container/sunucu UTC çalışır →
+  hiç kayma görünmez). Çözüm: `ClientTimeZoneService` (Web katmanı, Scoped) ilk render sonrası
+  JS interop ile (`wwwroot/js/timezone.js`, `Intl.DateTimeFormat().resolvedOptions().timeZone`)
+  tarayıcının IANA saat dilimini alır, `TimeZoneInfo.ConvertTime` ile çevirir; zaman gösteren
+  sayfalar `TimeZoneAwareComponentBase`'den türetilip `FormatLocal(...)` kullanır. Sunucudaki tüm
+  saat damgaları zaten `DateTimeOffset` (`IClock.UtcNow`) — `DateTime.ToLocalTime()`'a değil bu
+  servise geçilmeli.
+
 ## Yapı/Konvansiyonlar
 
 - Katmanlar: `Domain` (entity/enum, framework bağımsız) → `Application` (servisler,

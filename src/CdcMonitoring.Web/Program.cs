@@ -4,6 +4,7 @@ using CdcMonitoring.Domain.Enums;
 using CdcMonitoring.Infrastructure;
 using CdcMonitoring.Infrastructure.Persistence;
 using CdcMonitoring.Web.Components;
+using CdcMonitoring.Web.Services;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Prometheus;
@@ -26,6 +27,9 @@ try
 
     builder.Services.AddRazorComponents()
         .AddInteractiveServerComponents();
+
+    // Blazor circuit başına bir tane: tarayıcının saat dilimini tutar (bkz. ClientTimeZoneService).
+    builder.Services.AddScoped<ClientTimeZoneService>();
 
     // Tarih/saat formatı tarayıcı bazlı bir çerez tercihi (bkz. /culture/set) ile seçilir;
     // giriş sistemi olmadığından hesaba değil o tarayıcıya bağlıdır. Varsayılan tr-TR.

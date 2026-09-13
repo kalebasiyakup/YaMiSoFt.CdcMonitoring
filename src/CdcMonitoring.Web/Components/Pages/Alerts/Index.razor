@@ -1,5 +1,6 @@
 @page "/alerts"
 @rendermode InteractiveServer
+@inherits TimeZoneAwareComponentBase
 @using CdcMonitoring.Domain.Enums
 @inject AlertQueryService AlertQuery
 
@@ -71,9 +72,9 @@ else
                     <td>@SeverityBadge(a.Severity)</td>
                     <td>@(a.ConnectionName ?? a.RelationshipLabel ?? "-")</td>
                     <td>@a.Message</td>
-                    <td>@a.TriggeredAt.ToLocalTime().ToString("g")</td>
-                    <td>@(a.NotifiedAt?.ToLocalTime().ToString("g") ?? "-")</td>
-                    <td>@(a.ResolvedAt?.ToLocalTime().ToString("g") ?? "Aktif")</td>
+                    <td>@FormatLocal(a.TriggeredAt)</td>
+                    <td>@FormatLocal(a.NotifiedAt)</td>
+                    <td>@FormatLocal(a.ResolvedAt, fallback: "Aktif")</td>
                 </tr>
             }
         </tbody>

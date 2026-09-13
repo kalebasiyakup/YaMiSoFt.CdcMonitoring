@@ -1,4 +1,5 @@
 @page "/"
+@inherits TimeZoneAwareComponentBase
 @using CdcMonitoring.Application.Alerting
 @using CdcMonitoring.Application.CdcDiscovery
 @using CdcMonitoring.Application.Reconciliation
@@ -51,7 +52,7 @@ else
                     <text>Tutarsız</text>
                 }
             </span>
-            <span class="stat-sub">@(_lastReconciliation is null ? "henüz çalışmadı" : _lastReconciliation.RunAt.ToLocalTime().ToString("g"))</span>
+            <span class="stat-sub">@(_lastReconciliation is null ? "henüz çalışmadı" : FormatLocal(_lastReconciliation.RunAt))</span>
         </div>
     </div>
 
@@ -110,7 +111,7 @@ else
                                 <td>@TypeText(a.Type)</td>
                                 <td>@SeverityBadge(a.Severity)</td>
                                 <td>@(a.ConnectionName ?? a.RelationshipLabel ?? "-")</td>
-                                <td>@a.TriggeredAt.ToLocalTime().ToString("g")</td>
+                                <td>@FormatLocal(a.TriggeredAt)</td>
                             </tr>
                         }
                     </tbody>
