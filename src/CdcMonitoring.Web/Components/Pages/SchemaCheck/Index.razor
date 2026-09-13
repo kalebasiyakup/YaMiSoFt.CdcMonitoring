@@ -10,9 +10,10 @@
 <h1>Şema Karşılaştırma</h1>
 
 <p><em>
-    Bir CDC ilişkisinin publication'ındaki her tablo için kaynak/hedef kolon listelerini talep
-    üzerine (on-demand) karşılaştırır — eksik/fazladan kolon ve tip uyuşmazlıklarını gösterir.
-    Reconciliation'ın aksine geçmiş tutmaz, yalnızca "Karşılaştır"a bastığında canlı sorgular.
+    Bir CDC ilişkisinin (veya tümünün) publication'ındaki her tablo için kaynak/hedef kolon
+    listelerini talep üzerine (on-demand) karşılaştırır — eksik/fazladan kolon ve tip
+    uyuşmazlıklarını gösterir. Reconciliation'ın aksine geçmiş tutmaz, yalnızca "Karşılaştır"a
+    bastığında canlı sorgular.
 </em></p>
 
 @if (_relationships is null)
@@ -29,6 +30,7 @@ else
         <div class="col-auto">
             <label class="form-label mb-1">İlişki</label>
             <select class="form-select" style="min-width: 22rem" @bind="_selectedRelationshipId">
+                <option value="@Guid.Empty">Tümü (@_relationships.Count ilişki)</option>
                 @foreach (var r in _relationships)
                 {
                     <option value="@r.Id">@r.SourceConnectionName -> @r.TargetConnectionName (@r.SlotName)</option>
@@ -48,69 +50,102 @@ else
     <div class="alert alert-danger">@_errorMessage</div>
 }
 
-@if (_result is not null)
+@if (_outcomes.Count > 0)
 {
-    @if (_result.Tables.Count == 0)
+    @if (_outcomes.Count > 1)
     {
-        <p><em>Publication'da izlenebilir tablo bulunamadı.</em></p>
+        var differing = _outcomes.Count(o => o.Comparison is { HasDifferences: true });
+        var failed = _outcomes.Count(o => o.Error is not null);
+        <p>
+            <strong>@_outcomes.Count ilişki kontrol edildi:</strong>
+            @differing tanesinde şema farkı bulundu@(failed > 0 ? $", {failed} tanesi kontrol edilemedi" : "") .
+        </p>
     }
-    else
-    {
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Tablo</th>
-                    <th>Durum</th>
-                    <th>Hedefte Eksik Kolonlar</th>
-                    <th>Hedefte Fazladan Kolonlar</th>
-                    <th>Tip Uyuşmazlıkları</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var t in _result.Tables)
-                {
-                    <tr class="@(t.HasDifferences ? "table-warning" : "")">
-                        <td>@($"{t.SchemaName}.{t.TableName}")</td>
-                        <td>
-                            @if (t.HasDifferences)
-                            {
-                                <span class="badge bg-warning text-dark">Farklı</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-success">Eşleşti</span>
-                            }
-                        </td>
-                        <td>@(t.MissingInTarget.Count == 0 ? "-" : string.Join(", ", t.MissingInTarget))</td>
-                        <td>@(t.ExtraInTarget.Count == 0 ? "-" : string.Join(", ", t.ExtraInTarget))</td>
-                        <td>
-                            @if (t.TypeMismatches.Count == 0)
-                            {
-                                <text>-</text>
-                            }
-                            else
-                            {
-                                @string.Join(", ", t.TypeMismatches.Select(m => $"{m.ColumnName} ({m.SourceType} ≠ {m.TargetType})"))
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
 
-        @if (!_result.HasDifferences)
-        {
-            <p class="text-success"><em>Tüm tablolarda kaynak ve hedef şeması (kolon adı + tip) birebir eşleşiyor.</em></p>
-        }
+    @foreach (var outcome in _outcomes)
+    {
+        <div class="mb-4">
+            <h5>
+                @outcome.Relationship.SourceConnectionName -> @outcome.Relationship.TargetConnectionName
+                (@outcome.Relationship.SlotName)
+                @if (outcome.Error is not null)
+                {
+                    <span class="badge bg-secondary">Kontrol Edilemedi</span>
+                }
+                else if (outcome.Comparison!.HasDifferences)
+                {
+                    <span class="badge bg-warning text-dark">Farklı</span>
+                }
+                else
+                {
+                    <span class="badge bg-success">Eşleşti</span>
+                }
+            </h5>
+
+            @if (outcome.Error is not null)
+            {
+                <div class="alert alert-danger">@outcome.Error</div>
+            }
+            else if (outcome.Comparison!.Tables.Count == 0)
+            {
+                <p><em>Publication'da izlenebilir tablo bulunamadı.</em></p>
+            }
+            else
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Tablo</th>
+                            <th>Durum</th>
+                            <th>Hedefte Eksik Kolonlar</th>
+                            <th>Hedefte Fazladan Kolonlar</th>
+                            <th>Tip Uyuşmazlıkları</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in outcome.Comparison!.Tables)
+                        {
+                            <tr class="@(t.HasDifferences ? "table-warning" : "")">
+                                <td>@($"{t.SchemaName}.{t.TableName}")</td>
+                                <td>
+                                    @if (t.HasDifferences)
+                                    {
+                                        <span class="badge bg-warning text-dark">Farklı</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">Eşleşti</span>
+                                    }
+                                </td>
+                                <td>@(t.MissingInTarget.Count == 0 ? "-" : string.Join(", ", t.MissingInTarget))</td>
+                                <td>@(t.ExtraInTarget.Count == 0 ? "-" : string.Join(", ", t.ExtraInTarget))</td>
+                                <td>
+                                    @if (t.TypeMismatches.Count == 0)
+                                    {
+                                        <text>-</text>
+                                    }
+                                    else
+                                    {
+                                        @string.Join(", ", t.TypeMismatches.Select(m => $"{m.ColumnName} ({m.SourceType} ≠ {m.TargetType})"))
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
     }
 }
 
 @code {
+    private record RelationshipComparisonOutcome(CdcRelationshipSummary Relationship, RelationshipSchemaComparison? Comparison, string? Error);
+
     private List<CdcRelationshipSummary>? _relationships;
     private Guid _selectedRelationshipId;
     private bool _isComparing;
     private string? _errorMessage;
-    private RelationshipSchemaComparison? _result;
+    private List<RelationshipComparisonOutcome> _outcomes = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -118,30 +153,33 @@ else
         _relationships = all
             .Where(r => r.Status is CdcRelationshipStatus.Confirmed or CdcRelationshipStatus.Manual)
             .ToList();
-
-        if (_relationships.Count > 0)
-            _selectedRelationshipId = _relationships[0].Id;
     }
 
     private async Task CompareAsync()
     {
-        if (_selectedRelationshipId == Guid.Empty) return;
+        if (_relationships is null || _relationships.Count == 0) return;
 
         _isComparing = true;
         _errorMessage = null;
-        _result = null;
+        _outcomes = [];
 
-        try
+        var targets = _selectedRelationshipId == Guid.Empty
+            ? _relationships
+            : _relationships.Where(r => r.Id == _selectedRelationshipId).ToList();
+
+        foreach (var r in targets)
         {
-            _result = await SchemaComparisonService.CompareAsync(_selectedRelationshipId);
+            try
+            {
+                var comparison = await SchemaComparisonService.CompareAsync(r.Id);
+                _outcomes.Add(new RelationshipComparisonOutcome(r, comparison, null));
+            }
+            catch (Exception ex)
+            {
+                _outcomes.Add(new RelationshipComparisonOutcome(r, null, $"Karşılaştırma başarısız: {ex.Message}"));
+            }
         }
-        catch (Exception ex)
-        {
-            _errorMessage = $"Karşılaştırma başarısız: {ex.Message}";
-        }
-        finally
-        {
-            _isComparing = false;
-        }
+
+        _isComparing = false;
     }
 }
