@@ -20,12 +20,13 @@ public interface IPostgresInspector
     Task<List<PublicationTableInfo>> GetPublicationTablesAsync(PgConnection connection, string plaintextPassword, IReadOnlyList<string> publicationNames, CancellationToken ct = default);
 
     /// <summary>
-    /// Reconciliation (FR-11) için: bir tablonun kolon adları listesi. Kaynak tarafında alınıp
-    /// hem kaynak hem hedef checksum sorgusuna aynen geçirilir — hedefte (replikasyona dahil
-    /// olmayan) fazladan bir kolon bulunması (ör. hedef servisin kendi eklediği bir bookkeeping
-    /// alanı) checksum'ı hiçbir zaman etkilememelidir.
+    /// Reconciliation (FR-11) ve şema karşılaştırma ekranı için: bir tablonun kolon adı + veri
+    /// tipi listesi. Reconciliation'da kaynak tarafında alınıp hem kaynak hem hedef checksum
+    /// sorgusuna kolon adı olarak aynen geçirilir — hedefte (replikasyona dahil olmayan)
+    /// fazladan bir kolon bulunması (ör. hedef servisin kendi eklediği bir bookkeeping alanı)
+    /// checksum'ı hiçbir zaman etkilememelidir.
     /// </summary>
-    Task<List<string>> GetTableColumnsAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, CancellationToken ct = default);
+    Task<List<ColumnInfo>> GetTableColumnsAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, CancellationToken ct = default);
 
     /// <summary>
     /// Reconciliation (FR-11) için: bir tablonun satır sayısı ve sıra bağımsız checksum'ı.

@@ -74,6 +74,17 @@ ensure_database() {
 ensure_publication() {
   # $1=host $2=db $3=table $4=pubname
   psql_c "$1" "$2" "CREATE TABLE IF NOT EXISTS $3(id serial primary key, name text);"
+
+  # Örnek veri yalnızca KAYNAK (publisher) tarafına eklenir — hedefe elle satır
+  # eklemek source/target'ı kasıtlı olarak birbirinden koparır (reconciliation'ı
+  # bilerek bozar). Kaynağa eklenen satırlar, subscription kurulduktan sonra gerçek
+  # mantıksal replikasyonla hedefe kendiliğinden taşınır.
+  row_count=$(psql_tuple "$1" "$2" "SELECT count(*) FROM $3;")
+  if [ "$row_count" = "0" ]; then
+    psql_c "$1" "$2" "INSERT INTO $3 (name) SELECT '$3_' || g FROM generate_series(1, 5) g;"
+    echo "$1/$2.$3 içine 5 örnek satır eklendi."
+  fi
+
   exists=$(psql_tuple "$1" "$2" "SELECT 1 FROM pg_publication WHERE pubname = '$4';")
   if [ "$exists" = "1" ]; then
     echo "$4 zaten mevcut, atlanıyor."
@@ -119,6 +130,13 @@ ensure_database "$SUB_HOST" audit_replica
 ensure_subscription "$SUB_HOST" orders_replica sub_orders_replica_orders "$PUB_HOST" "$PUB_DB" pub_orders orders
 ensure_subscription "$SUB_HOST" orders_replica sub_orders_replica_customers "$PUB_HOST" "$PUB_DB" pub_customers customers
 ensure_subscription "$SUB_HOST" orders_replica sub_orders_replica_products "$PUB_HOST" "$PUB_DB" pub_products products
+
+# Bilinçli şema farkı örneği: hedef servisin kendi eklediği bir "bookkeeping" kolonu
+# simülasyonu (gerçek prod'da görülen last_updated_on_utc senaryosuyla aynı). Kaynakta
+# yok, yalnızca hedefte var — Şema Karşılaştırma ekranının "hedefte fazladan kolon"
+# durumunu, satır sayısı/checksum'ın ise (kolon bazlı karşılaştırma sayesinde) yine
+# de doğru "eşleşti" demesini göstermek için.
+psql_c "$SUB_HOST" orders_replica "ALTER TABLE orders ADD COLUMN IF NOT EXISTS last_updated_on_utc timestamptz;"
 
 # analytics_replica: orders (fan-out) + invoices
 ensure_subscription "$SUB_HOST" analytics_replica sub_analytics_replica_orders "$PUB_HOST" "$PUB_DB" pub_orders orders

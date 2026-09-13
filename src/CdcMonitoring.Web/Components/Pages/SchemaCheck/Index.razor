@@ -1,0 +1,147 @@
+@page "/schema-check"
+@rendermode InteractiveServer
+@using CdcMonitoring.Application.SchemaComparison
+@using CdcMonitoring.Domain.Enums
+@inject CdcRelationshipManagementService RelationshipManagement
+@inject SchemaComparisonService SchemaComparisonService
+
+<PageTitle>Şema Karşılaştırma</PageTitle>
+
+<h1>Şema Karşılaştırma</h1>
+
+<p><em>
+    Bir CDC ilişkisinin publication'ındaki her tablo için kaynak/hedef kolon listelerini talep
+    üzerine (on-demand) karşılaştırır — eksik/fazladan kolon ve tip uyuşmazlıklarını gösterir.
+    Reconciliation'ın aksine geçmiş tutmaz, yalnızca "Karşılaştır"a bastığında canlı sorgular.
+</em></p>
+
+@if (_relationships is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else if (_relationships.Count == 0)
+{
+    <p><em>Onaylanmış/manuel tanımlanmış bir CDC ilişkisi yok — karşılaştırma yalnızca bu ilişkiler için çalışır.</em></p>
+}
+else
+{
+    <div class="row mb-3 g-2 align-items-end">
+        <div class="col-auto">
+            <label class="form-label mb-1">İlişki</label>
+            <select class="form-select" style="min-width: 22rem" @bind="_selectedRelationshipId">
+                @foreach (var r in _relationships)
+                {
+                    <option value="@r.Id">@r.SourceConnectionName -> @r.TargetConnectionName (@r.SlotName)</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-primary" disabled="@_isComparing" @onclick="CompareAsync">
+                @(_isComparing ? "Karşılaştırılıyor..." : "Karşılaştır")
+            </button>
+        </div>
+    </div>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+@if (_result is not null)
+{
+    @if (_result.Tables.Count == 0)
+    {
+        <p><em>Publication'da izlenebilir tablo bulunamadı.</em></p>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Tablo</th>
+                    <th>Durum</th>
+                    <th>Hedefte Eksik Kolonlar</th>
+                    <th>Hedefte Fazladan Kolonlar</th>
+                    <th>Tip Uyuşmazlıkları</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in _result.Tables)
+                {
+                    <tr class="@(t.HasDifferences ? "table-warning" : "")">
+                        <td>@($"{t.SchemaName}.{t.TableName}")</td>
+                        <td>
+                            @if (t.HasDifferences)
+                            {
+                                <span class="badge bg-warning text-dark">Farklı</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">Eşleşti</span>
+                            }
+                        </td>
+                        <td>@(t.MissingInTarget.Count == 0 ? "-" : string.Join(", ", t.MissingInTarget))</td>
+                        <td>@(t.ExtraInTarget.Count == 0 ? "-" : string.Join(", ", t.ExtraInTarget))</td>
+                        <td>
+                            @if (t.TypeMismatches.Count == 0)
+                            {
+                                <text>-</text>
+                            }
+                            else
+                            {
+                                @string.Join(", ", t.TypeMismatches.Select(m => $"{m.ColumnName} ({m.SourceType} ≠ {m.TargetType})"))
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (!_result.HasDifferences)
+        {
+            <p class="text-success"><em>Tüm tablolarda kaynak ve hedef şeması (kolon adı + tip) birebir eşleşiyor.</em></p>
+        }
+    }
+}
+
+@code {
+    private List<CdcRelationshipSummary>? _relationships;
+    private Guid _selectedRelationshipId;
+    private bool _isComparing;
+    private string? _errorMessage;
+    private RelationshipSchemaComparison? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var all = await RelationshipManagement.ListAsync();
+        _relationships = all
+            .Where(r => r.Status is CdcRelationshipStatus.Confirmed or CdcRelationshipStatus.Manual)
+            .ToList();
+
+        if (_relationships.Count > 0)
+            _selectedRelationshipId = _relationships[0].Id;
+    }
+
+    private async Task CompareAsync()
+    {
+        if (_selectedRelationshipId == Guid.Empty) return;
+
+        _isComparing = true;
+        _errorMessage = null;
+        _result = null;
+
+        try
+        {
+            _result = await SchemaComparisonService.CompareAsync(_selectedRelationshipId);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Karşılaştırma başarısız: {ex.Message}";
+        }
+        finally
+        {
+            _isComparing = false;
+        }
+    }
+}

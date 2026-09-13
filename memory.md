@@ -88,7 +88,19 @@
   yalnızca log uyarısı verilir; kullanıcı FR-06 ile manuel ilişki tanımlayabilir.
 - **Reconciliation checksum'ı:** Sıra bağımsız (order-independent) bir teknik —
   her satırın `md5(t::text)`'inin ilk 64 bit'i toplanır (`sum(('x'||...)::bit(64)::bigint)`).
-  Standart bir PostgreSQL "checksum without ORDER BY" idiyomu.
+  Standart bir PostgreSQL "checksum without ORDER BY" idiyomu. İki gerçek prod hatasından
+  sonra iki kez düzeltildi (bkz. Teknik Tuzaklar): (1) toplamın son adımda `::bigint`'e
+  zorlanması büyük tablolarda "bigint out of range" hatası veriyordu, artık `::text`'e
+  çevriliyor; (2) `t::text` tüm satırı (tüm kolonları) hash'lediğinden hedefteki fazladan
+  bir kolon (hedef servisin kendi eklediği bookkeeping alanı gibi) checksum'ı hep uyuşmaz
+  hale getiriyordu — artık kolon listesi kaynaktan alınıp `SELECT <kolonlar> FROM tablo`
+  alt sorgusuyla hem kaynak hem hedefe aynen geçiriliyor, yalnızca gerçekten replike
+  edilen kolonlar karşılaştırılıyor.
+- **Şema Karşılaştırma ekranı (`/schema-check`, `SchemaComparisonService`):** Yukarıdaki
+  "hedefte fazladan kolon" sorununu keşfetmek için eklendi — reconciliation'ın aksine
+  periyodik çalışmaz/geçmiş tutmaz, kullanıcı bir ilişki seçip "Karşılaştır"a bastığında
+  canlı sorgular (eksik/fazladan kolon, tip uyuşmazlığı). Kasıtlı olarak on-demand
+  tasarlandı: bu bir alarm değil, bir tanı aracı.
 - **Topoloji grafiği üç katmanlı (kaynak → publication/hub → hedef):** `TopologyGraphBuilder.
   BuildHierarchy` her `(SourceConnectionId, PublicationName)` çifti için ayrı bir hub düğümü
   üretir; bir publication'ın birden fazla subscription'a bağlanması (fan-out) hub'dan çıkan
@@ -193,6 +205,42 @@
   `document.querySelector('button[type="submit"]').click()` çalıştırmak güvenilir bir
   fallback'tir.
 
+- **Serilog kullanılan bir projede `appsettings.json`'daki standart `"Logging": { "LogLevel": {...} }`
+  bölümü, Serilog'un kendi filtrelemesini HİÇ etkilemez.** `UseSerilog(...).ReadFrom.Configuration(...)`
+  çağrısı yalnızca `"Serilog": { "MinimumLevel": { "Default": ..., "Override": {...} } }` bölümünü
+  okur (Serilog.Settings.Configuration paketinin konvansiyonu). Bu oturumda EF Core'un her SQL
+  komutunu Information seviyesinde loglaması (`Microsoft.EntityFrameworkCore.Database.Command`)
+  önce yanlışlıkla `Logging` bölümüne override eklenerek "düzeltilmeye" çalışıldı — hiçbir etkisi
+  olmadı, loglar aynı hacimde devam etti. Doğru çözüm `Serilog.MinimumLevel.Override` altına
+  eklemekti. Belirti: appsettings'te bir log-level override'ı ekleyip rebuild ettikten sonra
+  log hacminde HİÇ değişiklik yoksa, muhtemelen yanlış bölüme yazılmıştır.
+- **MailKit `SecureSocketOptions.Auto`, bir boolean "StartTLS kullan" toggle'ının "kapalı"
+  durumu için YANLIŞ varsayılan olabilir.** Auto, sunucu STARTTLS'i destekliyorsa (bozuk/yanlış
+  bir sertifikayla bile) fırsatçı şekilde onu dener ve başarısız TLS handshake'i sessizce
+  plaintext'e düşürmez — hata fırlatır. Port 25 üzerinde STARTTLS'i destekleyen ama sertifikası
+  bağlanılan host adıyla uyuşmayan bir kurumsal relay'de bu, "SslHandshakeException: host name
+  did not match" olarak ortaya çıktı. Çözüm: toggle kapalıyken porta göre karar veren bir
+  `ResolveSecureSocketOptions` — 465 için `SslOnConnect` (implicit TLS, Ayarlar ekranındaki
+  tooltip'in zaten vaat ettiği davranış), diğer portlar için tamamen `None` (hiç TLS denemez).
+  Mailpit gibi "no encryption" bir sunucuya karşı local test yaparken de SmtpPort=1025 +
+  StartTLS kapalı olmalı — 587 (varsayılan) veya StartTLS açık bırakmak "unexpectedly
+  disconnected" ile sonuçlanır.
+- **PostgreSQL'de `sum(bigint)` aslında `numeric` (sınırsız hassasiyet) döndürür** — tam da
+  taşmayı önlemek için. Bu toplamı tekrar `::bigint`'e zorlamak, yeterince satır (veya birkaç
+  uç değerli hash) birikince "22003: bigint out of range" (routine: `numeric_int8`) hatasına yol
+  açar. Bir checksum/toplam zaten string olarak saklanıp karşılaştırılıyorsa `::bigint` yerine
+  `::text`'e çevirmek taşmayı büyüklükten bağımsız tamamen ortadan kaldırır.
+- **`docker-compose.local.yml`'deki servisler kalıcı volume kullanmadığından** container'lar
+  (`app`, `cdc-fixture` dahil) `docker compose up`/`up --build` her çağrıldığında yeniden
+  oluşabilir/restart olabilir — bu, `cdc-fixture-entrypoint.sh`'in (idempotent olsa da) baştan
+  sona tekrar tekrar çalışmasına yol açar. Çözüm: script'in başına, `pub-db/orders`'ta kalıcı
+  bir işaret tablosu (`_cdc_fixture_marker`) ekleyip kurulum daha önce tamamlandıysa script'i
+  saniyeler içinde bitirmek (bkz. script içindeki yorum). Ayrıca: bu ortamda tüm container'ların
+  aynı anda tamamen KAYBOLDUĞU (yalnızca durmuş değil, silinmiş — muhtemelen bir `docker compose
+  down`) birkaç kez gözlemlendi; volume olmadığından bu, tüm local verinin (SystemSettings
+  özelleştirmeleri dahil) sıfırlanması demektir — normal, ama beklenmedik "verim nereye gitti"
+  sorularına yol açabilir.
+
 ## Yapı/Konvansiyonlar
 
 - Katmanlar: `Domain` (entity/enum, framework bağımsız) → `Application` (servisler,
@@ -206,12 +254,33 @@
   bunların hepsinin `SELECT` ile başladığını doğrular (FR-14 garantisi, yeni bir
   sorgu eklenirse bu teste de eklenmelidir).
 - Local test ortamı: `docker-compose.local.yml` (metadata-db + pub-db/sub-db/mid-db +
-  mailpit + app + cdc-fixture). `cdc-fixture` servisi, `docker compose up` her
-  çalıştırıldığında `scripts/cdc-fixture-entrypoint.sh`'i otomatik koşturup iki senaryo
-  kurar: (1) basit orders/customers/products/invoices/payments fan-out'u, (2) kurgusal
-  bir kütüphane/katalog domaini (dom-catalog-api → dom-lending-api → 5 hedef servis) —
-  isimler bilinçli olarak jenerik, gerçek şirket domain'iyle örtüşmesin diye. `app`,
-  Development'ta açılışta bu bağlantıların tamamını Connections ekranına otomatik
-  kaydeder (`Program.cs`, `Seed:LocalCdcFixtureConnections`) — elle form doldurmaya
-  gerek yok. `scripts/setup-local-cdc-test.sh` yalnızca eski/tekil senaryoyu host'tan
-  elle tekrarlamak isteyenler için ikincil olarak duruyor, normal akışta gerekmiyor.
+  mailpit + app + cdc-fixture). `cdc-fixture` servisi `scripts/cdc-fixture-entrypoint.sh`'i
+  koşturup iki senaryo kurar: (1) basit orders/customers/products/invoices/payments
+  fan-out'u, (2) kurgusal bir kütüphane/katalog domaini (dom-catalog-api → dom-lending-api
+  → 5 hedef servis) — isimler bilinçli olarak jenerik, gerçek şirket domain'iyle
+  örtüşmesin diye. Her kaynak (publisher) tablosuna birkaç örnek satır eklenir (yalnızca
+  tablo boşsa) ve replikasyonla hedefe taşınır; `orders_replica.orders`'a ayrıca kasıtlı
+  bir fazladan kolon (`last_updated_on_utc`) eklenir — Şema Karşılaştırma ekranının
+  "hedefte fazladan kolon" senaryosunu canlı göstermek için. Script, `pub-db/orders`'taki
+  bir işaret tabloya (`_cdc_fixture_marker`) bakarak kurulum daha önce tamamlandıysa
+  tekrar çalışmayı atlar (bkz. Teknik Tuzaklar). `app`, Development'ta açılışta bu
+  bağlantıların tamamını Connections ekranına otomatik kaydeder (`Program.cs`,
+  `Seed:LocalCdcFixtureConnections`) — elle form doldurmaya gerek yok.
+  `scripts/setup-local-cdc-test.sh` yalnızca eski/tekil senaryoyu host'tan elle
+  tekrarlamak isteyenler için ikincil olarak duruyor, normal akışta gerekmiyor.
+- **Sayfalama + filtreleme deseni** (Alarmlar, Veri Tutarlılık Kontrolü ekranları):
+  `Application.Common.PagedResult<T>` (Items/TotalCount/Page/PageSize/TotalPages) ortak
+  dönüş tipi; repository katmanında `GetPagedAsync(filter, page, pageSize)` — filtreleme
+  ve `Skip/Take` DB seviyesinde (EF Core), tüm kayıtları çekip bellekte filtrelemez.
+  Web tarafında paylaşılan `Components/Shared/Pagination.razor` bileşeni (Page/TotalPages/
+  TotalCount/OnPageChange) her iki ekranda da aynı. Yeni bir listeleme ekranı eklenirse bu
+  deseni tekrarlayın — `GetRecentAsync` gibi eski, filtresiz/sayfalamasız metotlar (Ana
+  Sayfa widget'ları gibi başka yerlerde kullanıldığı için) kaldırılmadı, yanına eklendi.
+- **Retention (kayıt saklama) deseni** (Health Check + Veri Tutarlılık Kontrolü kayıtları;
+  audit log KASITLI olarak kapsam dışı, kalıcı tutulmalı): `SystemSettings`'te
+  `*RetentionDays` alanı + `RetentionCleanupService.RunOnceAsync` (`DeleteOlderThanAsync`
+  ile `ExecuteDeleteAsync` — toplu, entity yüklemeden siler) + `SchedulerTickJob`'da sabit
+  24 saatlik bir iş (`JobNames.RetentionCleanup`, kullanıcıya açılmayan tek sabit interval).
+  Yeni bir "sınırsız büyüyen log tablosu" eklenirse bu deseni tekrarlayın; ilgili tarih
+  kolonuna (`CheckedAt`/`RunAt` gibi) ayrı bir indeks eklemeyi unutmayın (bkz.
+  `CdcRelationshipHealthConfiguration`/`ReconciliationResultConfiguration`).

@@ -49,7 +49,7 @@ public class NpgsqlPostgresInspector : IPostgresInspector
         """;
 
     internal const string TableColumnsQuery = """
-        SELECT column_name
+        SELECT column_name, data_type
         FROM information_schema.columns
         WHERE table_schema = @schema AND table_name = @table
         ORDER BY ordinal_position;
@@ -171,7 +171,7 @@ public class NpgsqlPostgresInspector : IPostgresInspector
         return result;
     }
 
-    public async Task<List<string>> GetTableColumnsAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, CancellationToken ct = default)
+    public async Task<List<ColumnInfo>> GetTableColumnsAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, CancellationToken ct = default)
     {
         await using var conn = await OpenAsync(connection, plaintextPassword, ct);
         await using var cmd = new NpgsqlCommand(TableColumnsQuery, conn);
@@ -179,9 +179,9 @@ public class NpgsqlPostgresInspector : IPostgresInspector
         cmd.Parameters.AddWithValue("table", tableName);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
 
-        var result = new List<string>();
+        var result = new List<ColumnInfo>();
         while (await reader.ReadAsync(ct))
-            result.Add(reader.GetString(0));
+            result.Add(new ColumnInfo(reader.GetString(0), reader.GetString(1)));
         return result;
     }
 

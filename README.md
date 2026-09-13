@@ -17,9 +17,10 @@ Gereksinimlerin tam listesi için bkz. [`CDC_Monitoring_BRD.md`](./CDC_Monitorin
 - **Bağlantı Defteri:** PostgreSQL bağlantılarını (host/port/db/kullanıcı/parola/ortam etiketi) kaydeder; parolalar uygulama içi Data Protection ile şifreli saklanır, hiçbir ekranda geri gösterilmez.
 - **CDC İlişkileri:** Kayıtlı bağlantılar arasında `pg_publication`, `pg_subscription`, `pg_replication_slots` gibi sistem görünümlerini salt-okuma ile tarayarak CDC ilişkilerini otomatik keşfeder; kullanıcı bu önerileri onaylar/reddeder ya da elle tanımlar.
 - **Topoloji:** Kayıtlı bağlantıları ve aralarındaki CDC ilişkilerini canlı güncellenen, hiyerarşik (kaynak → publication/hub → hedef) bir graf ekranında gösterir; bir publication'ın birden fazla hedefe bağlandığı durumlar (fan-out) ayrı kenarlar olarak görünür, kenar rengi sağlık durumunu (yeşil/sarı/kırmızı/gri) taşır. Bir düğüme tıklamak onu ve doğrudan komşularını öne çıkarıp geri kalanını soluklaştırır (odaklama); bir kenara tıklamak slot/lag detaylarını gösterir.
-- **Alarmlar:** Slot inaktifliği, WAL kritik durumu, subscription hatası, sürekli artan lag ve ardışık health check hatası gibi durumları izler; eşik aşıldığında **e-posta** ile bildirir (anti-flap: aynı sorun için tekrar tekrar göndermez, durum düzelince otomatik kapatır).
-- **Veri Tutarlılık Kontrolü:** Onaylanmış CDC ilişkileri için periyodik olarak kaynak-hedef satır sayısı/checksum karşılaştırması yapar, tutarsızlık bulunursa e-posta ile raporlar.
-- **Ayarlar:** Tüm çalışma parametreleri (tarama sıklıkları, alarm eşikleri, SMTP bilgileri) veritabanında saklanır ve `/settings` ekranından — her alanın yanındaki bilgi ikonuyla ne işe yaradığı açıklanarak, e-posta ayarları için kaydetmeden test gönderme imkânıyla, **yeniden başlatma gerekmeden** — yönetilir. Ayrıca `/settings` → **Görünüm** sekmesinden tarih/saat formatı (Türkçe/English) tarayıcı bazlı bir çerezle seçilebilir; uygulamada hesap girişi olmadığından bu tercih o tarayıcıya özeldir, DB'deki ortak ayarlara dahil değildir.
+- **Alarmlar:** Slot inaktifliği, WAL kritik durumu, subscription hatası, sürekli artan lag ve ardışık health check hatası gibi durumları izler; eşik aşıldığında **e-posta** ile bildirir (anti-flap: aynı sorun için tekrar tekrar göndermez, durum düzelince otomatik kapatır). `/alerts` ekranı önem/tür/durum filtreleri ve sayfalama ile geçmişi listeler.
+- **Veri Tutarlılık Kontrolü:** Onaylanmış CDC ilişkileri için (aralığı dakika/saat/gün olarak `/settings`'ten seçilebilir bir sıklıkta) kaynak-hedef satır sayısı/checksum karşılaştırması yapar, tutarsızlık bulunursa e-posta ile raporlar. Checksum yalnızca **kaynağın publication'ında gerçekten yayınlanan kolonlara** göre hesaplanır — hedef servisin kendi eklediği fazladan bir kolon (ör. bir bookkeeping alanı) checksum'ı asla etkilemez. `/reconciliation` ekranı durum filtresi (Eşleşti/Tutarsız) ve sayfalama ile sonuç geçmişini listeler; eski kayıtlar ayarlanabilir bir saklama süresinden sonra otomatik silinir.
+- **Şema Karşılaştırma:** `/schema-check` ekranından, seçilen bir CDC ilişkisi için publication'ındaki her tabloda kaynak/hedef kolon listelerini **talep üzerine (on-demand)** karşılaştırır — eksik kolon, hedefte fazladan kolon ve tip uyuşmazlıklarını gösterir. Reconciliation'ın aksine periyodik çalışmaz, geçmiş tutmaz; salt tanı amaçlı canlı bir sorgu aracıdır.
+- **Ayarlar:** Tüm çalışma parametreleri (tarama sıklıkları, alarm eşikleri, SMTP bilgileri, health check/reconciliation kayıt saklama süreleri) veritabanında saklanır ve `/settings` ekranından — her alanın yanındaki bilgi ikonuyla ne işe yaradığı açıklanarak, e-posta ayarları için kaydetmeden test gönderme imkânıyla, **yeniden başlatma gerekmeden** — yönetilir. Tarih/saat formatı (Türkçe/English) tercihi artık Ayarlar'da değil, sol menünün en altında (tarayıcı bazlı bir çerezle, hesap girişi olmadığından o tarayıcıya özel) seçilir.
 
 ### Salt-gözlem garantisi
 
@@ -46,7 +47,7 @@ deploy/helm/cdc-monitoring/      Kubernetes/Helm chart
 
 ### Zamanlama modeli
 
-Dört arka plan işi (bağlantı health check, CDC keşfi, alarm değerlendirme, veri tutarlılık kontrolü) tek bir Quartz job'u (`SchedulerTickJob`) tarafından, sabit kısa aralıklarla (15 sn) "yoklanır". Her işin gerçek çalışma sıklığı veritabanındaki `SystemSettings` tablosundan okunur; bir işin çalışma hakkı, çoklu replika (NFR-05) güvenliği için **atomik bir koşullu UPDATE** ile "claim" edilir — aynı iş iki replikada birden çalışamaz.
+Beş arka plan işi (bağlantı health check, CDC keşfi, alarm değerlendirme, veri tutarlılık kontrolü, retention temizliği) tek bir Quartz job'u (`SchedulerTickJob`) tarafından, sabit kısa aralıklarla (15 sn) "yoklanır". İlk dördünün gerçek çalışma sıklığı veritabanındaki `SystemSettings` tablosundan okunur ve `/settings`'ten değiştirilebilir; retention temizliği sabit 24 saatte bir çalışır (kullanıcıya açılmamıştır — saklama *süresi* ayarlanabilir, taramanın *sıklığı* değil). Bir işin çalışma hakkı, çoklu replika (NFR-05) güvenliği için **atomik bir koşullu UPDATE** ile "claim" edilir — aynı iş iki replikada birden çalışamaz.
 
 ## Teknoloji Yığını
 
@@ -84,6 +85,10 @@ docker compose -f docker-compose.local.yml up -d --build
 ```
 
 Sonra `http://localhost:5299/topology` üzerinden CDC ilişkilerinin otomatik keşfedildiğini — çoğu publication'ın iki-üç ayrı hedefe dallandığı (fan-out) hiyerarşik topolojiyi — ve e-posta bildirimlerinin `http://localhost:8025` (Mailpit) üzerinden gerçek SMTP protokolüyle geldiğini gözlemleyebilirsiniz.
+
+Her kaynak (publisher) tablosuna otomatik olarak birkaç örnek satır eklenir (yalnızca tablo boşsa) ve subscription kurulduktan sonra gerçek mantıksal replikasyonla hedefe kendiliğinden taşınır — Veri Tutarlılık Kontrolü ve Şema Karşılaştırma ekranlarını boş tablolarla değil, gerçek veriyle deneyebilirsiniz. `orders_replica.orders` tablosuna ayrıca, hedef servisin kendi eklediği bir kolonu simüle etmek için kasıtlı olarak fazladan bir `last_updated_on_utc` kolonu eklenir — Şema Karşılaştırma ekranının "hedefte fazladan kolon" senaryosunu canlı örnekle göstermek içindir.
+
+`cdc-fixture` container'ları kalıcı volume kullanmadığından `docker compose up --build` her çağrıldığında yeniden oluşabilir; script bunu `pub-db/orders` içindeki bir işaret tabloya (`_cdc_fixture_marker`) bakarak fark eder — kurulum daha önce tamamlandıysa (veri hâlâ duruyorsa) tüm adımları tekrar denemeden saniyeler içinde çıkar.
 
 `scripts/setup-local-cdc-test.sh`, yalnızca eski/tekil (tek tablo) senaryoyu host'tan `docker compose exec` ile elle tekrarlamak isteyenler için tutulur; normal akışta gerekmez — `cdc-fixture` servisi zaten yukarıdaki genişletilmiş kurulumu otomatik yapar.
 

@@ -4,6 +4,7 @@ using CdcMonitoring.Application.CdcDiscovery;
 using CdcMonitoring.Application.HealthChecks;
 using CdcMonitoring.Application.Reconciliation;
 using CdcMonitoring.Application.Retention;
+using CdcMonitoring.Application.SchemaComparison;
 using CdcMonitoring.Application.Settings;
 using CdcMonitoring.Infrastructure.Email;
 using CdcMonitoring.Infrastructure.Jobs;
@@ -90,6 +91,7 @@ public static class DependencyInjection
         services.AddScoped<ReconciliationService>();
         services.AddScoped<ReconciliationQueryService>();
         services.AddScoped<RetentionCleanupService>();
+        services.AddScoped<SchemaComparisonService>();
         services.AddScoped<SystemSettingsService>();
 
         var useClusteredJobStore = configuration.GetValue<bool>("Quartz:UseClusteredPostgresStore");

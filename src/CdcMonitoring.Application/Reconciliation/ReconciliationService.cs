@@ -96,8 +96,9 @@ public class ReconciliationService(
             // hedef tarafın kendi eklediği fazladan bir kolon (ör. bookkeeping alanı) bu sayede
             // checksum'ı asla etkilemez — yalnızca gerçekten replike edilen kolonlar karşılaştırılır.
             var columns = await inspector.GetTableColumnsAsync(source, sourcePassword, table.SchemaName, table.TableName, ct);
-            var sourceStats = await inspector.GetTableChecksumAsync(source, sourcePassword, table.SchemaName, table.TableName, columns, ct);
-            var targetStats = await inspector.GetTableChecksumAsync(target, targetPassword, table.SchemaName, table.TableName, columns, ct);
+            var columnNames = columns.Select(c => c.Name).ToList();
+            var sourceStats = await inspector.GetTableChecksumAsync(source, sourcePassword, table.SchemaName, table.TableName, columnNames, ct);
+            var targetStats = await inspector.GetTableChecksumAsync(target, targetPassword, table.SchemaName, table.TableName, columnNames, ct);
 
             totalSourceRows += sourceStats.RowCount;
             totalTargetRows += targetStats.RowCount;
