@@ -55,7 +55,7 @@ public class NpgsqlPostgresInspector : IPostgresInspector
     internal static string BuildTableChecksumQuery(string quotedSchema, string quotedTable) => $"""
         SELECT
             count(*)::bigint AS row_count,
-            COALESCE(sum(('x' || substr(md5(t::text), 1, 16))::bit(64)::bigint), 0)::bigint AS checksum
+            COALESCE(sum(('x' || substr(md5(t::text), 1, 16))::bit(64)::bigint), 0)::text AS checksum
         FROM {quotedSchema}.{quotedTable} t;
         """;
 
@@ -172,8 +172,8 @@ public class NpgsqlPostgresInspector : IPostgresInspector
             return new TableChecksum(0, "0");
 
         var rowCount = reader.GetInt64(0);
-        var checksum = reader.GetInt64(1);
-        return new TableChecksum(rowCount, checksum.ToString());
+        var checksum = reader.GetString(1);
+        return new TableChecksum(rowCount, checksum);
     }
 
     private static string QuoteIdentifier(string identifier) => $"\"{identifier.Replace("\"", "\"\"")}\"";
