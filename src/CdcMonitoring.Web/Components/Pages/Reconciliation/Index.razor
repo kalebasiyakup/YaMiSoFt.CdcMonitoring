@@ -18,6 +18,11 @@
             <option value="mismatch">Tutarsız</option>
         </select>
     </div>
+    <div class="col-auto ms-auto">
+        <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@_isRefreshing" @onclick="LoadAsync">
+            @(_isRefreshing ? "Yenileniyor..." : "Yenile")
+        </button>
+    </div>
 </div>
 
 @if (_results is null)
@@ -79,6 +84,7 @@ else
     private int _page = 1;
     private int _totalPages = 1;
     private int _totalCount;
+    private bool _isRefreshing;
 
     private string _statusFilter = "";
 
@@ -98,18 +104,26 @@ else
 
     private async Task LoadAsync()
     {
-        bool? isMatch = _statusFilter switch
+        _isRefreshing = true;
+        try
         {
-            "match" => true,
-            "mismatch" => false,
-            _ => null
-        };
+            bool? isMatch = _statusFilter switch
+            {
+                "match" => true,
+                "mismatch" => false,
+                _ => null
+            };
 
-        var filter = new ReconciliationResultFilter(isMatch);
-        var result = await ReconciliationQuery.GetPagedAsync(filter, _page, PageSize);
+            var filter = new ReconciliationResultFilter(isMatch);
+            var result = await ReconciliationQuery.GetPagedAsync(filter, _page, PageSize);
 
-        _results = result.Items;
-        _totalCount = result.TotalCount;
-        _totalPages = result.TotalPages;
+            _results = result.Items;
+            _totalCount = result.TotalCount;
+            _totalPages = result.TotalPages;
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
     }
 }
