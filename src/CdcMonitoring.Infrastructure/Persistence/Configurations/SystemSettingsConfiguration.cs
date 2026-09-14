@@ -11,15 +11,47 @@ public class SystemSettingsConfiguration : IEntityTypeConfiguration<SystemSettin
 
     public void Configure(EntityTypeBuilder<SystemSettings> builder)
     {
+        builder.ToTable(t => t.HasComment(
+            "Tekil (sabit Id'li) ayar satırı: tarama aralıkları, alarm eşikleri, SMTP/e-posta " +
+            "yapılandırması ve saklama süreleri. /settings ekranından yeniden başlatma " +
+            "gerekmeden düzenlenir."));
+
         builder.HasKey(s => s.Id);
-        builder.Property(s => s.HealthyWalStatusesCsv).HasMaxLength(200).IsRequired();
-        builder.Property(s => s.SmtpHost).HasMaxLength(255);
-        builder.Property(s => s.SmtpUsername).HasMaxLength(200);
-        builder.Property(s => s.EncryptedSmtpPassword).HasColumnType("text");
-        builder.Property(s => s.FromAddress).HasMaxLength(255).IsRequired();
-        builder.Property(s => s.FromDisplayName).HasMaxLength(200).IsRequired();
-        builder.Property(s => s.RecipientsCsv).HasColumnType("text");
-        builder.Property(s => s.UpdatedBy).HasMaxLength(200);
+        builder.Property(s => s.Id).HasComment("Sabit singleton Id (00000000-0000-0000-0000-000000000001).");
+        builder.Property(s => s.HealthCheckIntervalSeconds).HasComment("ConnectionHealthCheck taramaları arasındaki süre (sn).");
+        builder.Property(s => s.HealthCheckMaxDegreeOfParallelism).HasComment("Health check taramasında eşzamanlı çalışacak bağlantı sayısı.");
+        builder.Property(s => s.HealthCheckTimeoutSeconds).HasComment("Bir health check denemesi için zaman aşımı süresi (sn).");
+        builder.Property(s => s.HealthCheckRetentionDays).HasComment("ConnectionHealthCheck kayıtlarının saklanma süresi (gün).");
+        builder.Property(s => s.DiscoveryIntervalSeconds).HasComment("CDC ilişki keşif (discovery) taramaları arasındaki süre (sn).");
+        builder.Property(s => s.DiscoveryMaxDegreeOfParallelism).HasComment("Keşif taramasında eşzamanlı çalışacak bağlantı sayısı.");
+        builder.Property(s => s.DiscoveryTimeoutSeconds).HasComment("Bir keşif denemesi için zaman aşımı süresi (sn).");
+        builder.Property(s => s.AlertingIntervalSeconds).HasComment("Alarm değerlendirme (eşik kontrolü) taramaları arasındaki süre (sn).");
+        builder.Property(s => s.SlotInactiveMinutes).HasComment("Bir slot'un bu süre boyunca inaktif kalması SlotInactive alarmı üretir (dk).");
+        builder.Property(s => s.LagWarningSustainedMinutes).HasComment("Lag eşiğinin bu süre boyunca sürekli aşılması LagWarning alarmı üretir (dk).");
+        builder.Property(s => s.LagWarningBytes).HasComment("LagWarning alarmı için byte cinsinden eşik değer.");
+        builder.Property(s => s.ConsecutiveHealthCheckFailures).HasComment("HealthCheckFailed alarmı üretmek için gereken ardışık başarısız kontrol sayısı.");
+        builder.Property(s => s.HealthyWalStatusesCsv).HasMaxLength(200).IsRequired()
+            .HasComment("Sağlıklı sayılan pg_replication_slots.wal_status değerlerinin virgülle ayrılmış listesi (ör. reserved,extended).");
+        builder.Property(s => s.ReconciliationIntervalSeconds).HasComment("Veri Tutarlılık Kontrolü taramaları arasındaki süre (sn).");
+        builder.Property(s => s.ReconciliationRetentionDays).HasComment("ReconciliationResult kayıtlarının saklanma süresi (gün).");
+        builder.Property(s => s.EmailEnabled).HasComment("E-posta bildirimlerinin açık olup olmadığı.");
+        builder.Property(s => s.SmtpHost).HasMaxLength(255)
+            .HasComment("SMTP sunucu adresi.");
+        builder.Property(s => s.SmtpPort).HasComment("SMTP sunucu portu.");
+        builder.Property(s => s.SmtpUseStartTls).HasComment("SMTP bağlantısında STARTTLS kullanılıp kullanılmayacağı.");
+        builder.Property(s => s.SmtpUsername).HasMaxLength(200)
+            .HasComment("SMTP kimlik doğrulama kullanıcı adı.");
+        builder.Property(s => s.EncryptedSmtpPassword).HasColumnType("text")
+            .HasComment("Data Protection ile şifrelenmiş SMTP parolası; hiçbir ekranda geri gösterilmez.");
+        builder.Property(s => s.FromAddress).HasMaxLength(255).IsRequired()
+            .HasComment("Bildirim e-postalarının gönderen adresi.");
+        builder.Property(s => s.FromDisplayName).HasMaxLength(200).IsRequired()
+            .HasComment("Bildirim e-postalarının gönderen görünen adı.");
+        builder.Property(s => s.RecipientsCsv).HasColumnType("text")
+            .HasComment("Bildirim e-postalarının alıcı listesi, virgülle ayrılmış.");
+        builder.Property(s => s.UpdatedAt).HasComment("Ayarların son güncellenme zamanı.");
+        builder.Property(s => s.UpdatedBy).HasMaxLength(200)
+            .HasComment("Ayarları son güncelleyen kullanıcı.");
 
         builder.HasData(new SystemSettings
         {
