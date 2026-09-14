@@ -17,6 +17,7 @@ namespace CdcMonitoring.Application.Reconciliation;
 public class ReconciliationService(
     ICdcRelationshipRepository relationships,
     IReconciliationResultRepository results,
+    IAlertEventRepository alertEvents,
     IConnectionPasswordProtector passwordProtector,
     IPostgresInspector inspector,
     IEmailNotifier emailNotifier,
@@ -44,6 +45,9 @@ public class ReconciliationService(
 
                 if (!result.IsMatch)
                     mismatchSummaries.Add($"{sourceName} -> {targetName} ({r.SlotName}): {result.Details}");
+
+                await UpdateMismatchAlertAsync(r, conditionActive: !result.IsMatch,
+                    () => $"{sourceName} -> {targetName}: veri tutarlılık kontrolü tutarsız ({r.SlotName}) — {result.Details}", ct);
             }
             catch (Exception ex)
             {
@@ -53,6 +57,9 @@ public class ReconciliationService(
                 // çıktısı olan e-posta hiç gönderilmez — operatörler kontrolün tamamen başarısız
                 // olduğundan habersiz kalır.
                 failureSummaries.Add($"{sourceName} -> {targetName} ({r.SlotName}): kontrol çalıştırılamadı — {ex.Message}");
+
+                await UpdateMismatchAlertAsync(r, conditionActive: true,
+                    () => $"{sourceName} -> {targetName}: veri tutarlılık kontrolü çalıştırılamadı ({r.SlotName}) — {ex.Message}", ct);
             }
         }
 
@@ -128,6 +135,42 @@ public class ReconciliationService(
             IsMatch = allMatch,
             Details = string.Join("; ", details)
         };
+    }
+
+    // AlertEvaluationService.EvaluateRuleAsync ile aynı tetikle/kapat mantığı, ancak e-posta
+    // bildirimi burada tekrar gönderilmez — RunOnceAsync sonunda tüm tutarsızlıklar zaten tek
+    // bir toplu rapor e-postasıyla bildiriliyor (mevcut yol korunuyor).
+    private async Task UpdateMismatchAlertAsync(
+        CdcRelationship r, bool conditionActive, Func<string> messageFactory, CancellationToken ct)
+    {
+        var active = await alertEvents.GetActiveAsync(AlertType.ReconciliationMismatch, connectionId: null, r.Id, ct);
+
+        if (!conditionActive)
+        {
+            if (active is not null)
+            {
+                active.ResolvedAt = clock.UtcNow;
+                await alertEvents.SaveChangesAsync(ct);
+            }
+            return;
+        }
+
+        if (active is null)
+        {
+            var now = clock.UtcNow;
+            active = new AlertEvent
+            {
+                Id = Guid.NewGuid(),
+                Type = AlertType.ReconciliationMismatch,
+                Severity = AlertSeverity.Warning,
+                RelationshipId = r.Id,
+                TriggeredAt = now,
+                NotifiedAt = now,
+                Message = messageFactory()
+            };
+            await alertEvents.AddAsync(active, ct);
+            await alertEvents.SaveChangesAsync(ct);
+        }
     }
 
     private static string CombineHash(IEnumerable<string> parts)
