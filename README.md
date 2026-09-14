@@ -45,6 +45,10 @@ tests/
 deploy/helm/cdc-monitoring/      Kubernetes/Helm chart
 ```
 
+Metadata şemasındaki her tablo ve kolon, veritabanı seviyesinde (`COMMENT ON TABLE`/`COMMENT ON
+COLUMN`, EF Core `.HasComment()` ile) Türkçe açıklama taşır — şema `psql`'de `\d+ <tablo>` ile veya
+herhangi bir DB istemcisiyle koddan bağımsız anlaşılabilir.
+
 ### Zamanlama modeli
 
 Beş arka plan işi (bağlantı health check, CDC keşfi, alarm değerlendirme, veri tutarlılık kontrolü, retention temizliği) tek bir Quartz job'u (`SchedulerTickJob`) tarafından, sabit kısa aralıklarla (15 sn) "yoklanır". İlk dördünün gerçek çalışma sıklığı veritabanındaki `SystemSettings` tablosundan okunur ve `/settings`'ten değiştirilebilir; retention temizliği sabit 24 saatte bir çalışır (kullanıcıya açılmamıştır — saklama *süresi* ayarlanabilir, taramanın *sıklığı* değil). Bir işin çalışma hakkı, çoklu replika (NFR-05) güvenliği için **atomik bir koşullu UPDATE** ile "claim" edilir — aynı iş iki replikada birden çalışamaz.

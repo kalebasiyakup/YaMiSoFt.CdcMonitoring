@@ -126,6 +126,20 @@
   (UD) layout kullanır; bir düğüme tıklamak onu ve komşularını öne çıkarıp gerisini
   soluklaştırır (`applyFocus`/`clearFocus`, opacity tabanlı).
 
+- **Tablo/kolon açıklamaları entity'lere değil `Configure()`'a (Fluent API) eklendi:**
+  9 `IEntityTypeConfiguration<T>` dosyasına (`Infrastructure/Persistence/Configurations/*.cs`)
+  `builder.ToTable(t => t.HasComment(...))` + her `Property(...)`'ye `.HasComment(...)` eklenip
+  `AddTableAndColumnComments` migration'ı oluşturuldu — DB'de `COMMENT ON TABLE`/`COMMENT ON
+  COLUMN` üretir. Entity üzerine (ör. EF Core'un `[Comment]` data annotation'ı ile) değil
+  `Configure()`'a eklenmesinin sebebi: `CdcMonitoring.Domain.csproj`'un hiçbir NuGet paketi
+  referansı yok (saf POCO, framework bağımsız) — entity'ye attribute eklemek Domain'i
+  `Microsoft.EntityFrameworkCore.Abstractions`'a bağımlı kılıp katman sınırını bozardı, ayrıca
+  projenin zaten kurulu "tüm şema/persistence ayarları (`HasMaxLength`, `HasConversion`,
+  `HasIndex`, `HasData`) `Configure()`'da toplanır" konvansiyonundan kopardı. Kullanıcı projeyi
+  çalıştırdığında `db.Database.Migrate()` migration'ı otomatik uyguladı; `pg_class.obj_description`
+  ve `\d+ "PgConnections"` ile hem 9 tablonun hem kolonların Türkçe yorumları canlı DB'de teyit
+  edildi.
+
 ## Teknik Tuzaklar / Öğrenilenler (gelecekte tekrar karşılaşılabilir)
 
 - **`dotnet ef migrations add` sırasında `HostAbortedException` fırlaması normaldir**
