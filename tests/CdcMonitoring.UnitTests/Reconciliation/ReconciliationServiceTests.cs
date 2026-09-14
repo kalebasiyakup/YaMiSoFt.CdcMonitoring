@@ -26,25 +26,29 @@ public class ReconciliationServiceTests
     };
 
     private static (ReconciliationService Service, InMemoryCdcRelationshipRepository Relationships,
-        InMemoryReconciliationResultRepository Results, FakePostgresInspector Inspector, FakeEmailNotifier Email) CreateService()
+        InMemoryReconciliationResultRepository Results, FakePostgresInspector Inspector, FakeEmailNotifier Email,
+        InMemoryAlertEventRepository AlertEvents) CreateService()
     {
         var relationships = new InMemoryCdcRelationshipRepository();
         var results = new InMemoryReconciliationResultRepository();
         var inspector = new FakePostgresInspector();
         var email = new FakeEmailNotifier();
+        var alertEvents = new InMemoryAlertEventRepository();
+        var settingsRepository = new FakeSystemSettingsRepository(FakeSystemSettingsRepository.CreateDefault());
 
         var service = new ReconciliationService(
-            relationships, results, new FakePasswordProtector(), inspector, email,
+            relationships, results, alertEvents, new FakePasswordProtector(), inspector, email,
+            settingsRepository,
             new FixedClock(DateTimeOffset.UtcNow),
             NullLogger<ReconciliationService>.Instance);
 
-        return (service, relationships, results, inspector, email);
+        return (service, relationships, results, inspector, email, alertEvents);
     }
 
     [Fact]
     public async Task RunOnceAsync_records_match_when_checksums_are_equal_and_sends_no_email()
     {
-        var (service, relationships, results, inspector, email) = CreateService();
+        var (service, relationships, results, inspector, email, alertEvents) = CreateService();
 
         var source = NewConnection("src");
         var target = NewConnection("tgt");
@@ -74,12 +78,13 @@ public class ReconciliationServiceTests
         Assert.Equal(100, result.SourceRowCount);
         Assert.Equal(100, result.TargetRowCount);
         Assert.Empty(email.Reports);
+        Assert.Null(await alertEvents.GetActiveAsync(AlertType.ReconciliationMismatch, null, relationship.Id));
     }
 
     [Fact]
     public async Task RunOnceAsync_records_mismatch_and_sends_report_email_when_row_counts_differ()
     {
-        var (service, relationships, results, inspector, email) = CreateService();
+        var (service, relationships, results, inspector, email, alertEvents) = CreateService();
 
         var source = NewConnection("src");
         var target = NewConnection("tgt");
@@ -110,12 +115,17 @@ public class ReconciliationServiceTests
 
         var report = Assert.Single(email.Reports);
         Assert.Contains("tutarsızlık", report.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("TUTARSIZ", report.Body, StringComparison.OrdinalIgnoreCase);
+
+        var alert = await alertEvents.GetActiveAsync(AlertType.ReconciliationMismatch, null, relationship.Id);
+        Assert.NotNull(alert);
+        Assert.Equal(AlertSeverity.Warning, alert!.Severity);
     }
 
     [Fact]
     public async Task RunOnceAsync_ignores_relationships_that_are_only_inferred()
     {
-        var (service, relationships, results, inspector, _) = CreateService();
+        var (service, relationships, results, inspector, _, _) = CreateService();
 
         var source = NewConnection("src");
         var target = NewConnection("tgt");

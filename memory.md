@@ -108,6 +108,16 @@
   yeni `AlertEvent` yalnızca kayda/`/alerts` ekranına görünürlük katıyor). `AlertType.ReconciliationMismatch`
   enum'ı ve `/alerts` filtre dropdown'ı uzun süre vardı ama bunu üreten kod hiç yazılmamıştı — kullanıcı
   "e-posta geliyor ama Alarmlar sayfasında görünmüyor" diye fark edene kadar sessiz bir eksiklikti.
+- **`IEmailNotifier.SendReportAsync`'in `body` parametresi artık HTML olarak gönderiliyor** (`MailKitEmailNotifier`
+  `TextPart("html")` kullanıyor), `SendAlertAsync` (tekil alarm e-postaları) ise hâlâ düz metin — bu bilinçli
+  bir asimetri, interface tek satırlık bir yorumla belirtiyor. Şu an `SendReportAsync`'in tek çağıranı
+  `ReconciliationService.BuildReportHtml` (inline CSS'li tablo tabanlı bir e-posta şablonu üretir — dinamik
+  alanlar `WebUtility.HtmlEncode` ile kaçışlanır, ör. bir Postgres hata mesajı HTML'i bozmasın diye). E-posta
+  konusundaki/gövdesindeki eski sabit **"Haftalık"** ifadesi kaldırıldı — kullanıcı sıklığı artık `/settings`'ten
+  dakika/saat/gün olarak seçebildiği için yanlış bilgiydi; gövdedeki "Kontrol sıklığı" metni
+  `SystemSettings.ReconciliationIntervalSeconds`'tan `FormatInterval` ile dinamik üretiliyor. Yeni bir
+  `SendReportAsync` çağıranı eklenirse gövdeyi HTML olarak hazırlamayı unutmayın (düz metin geçirilirse
+  e-posta istemcisinde etiketler ham metin olarak görünür).
 - **Topoloji grafiği üç katmanlı (kaynak → publication/hub → hedef):** `TopologyGraphBuilder.
   BuildHierarchy` her `(SourceConnectionId, PublicationName)` çifti için ayrı bir hub düğümü
   üretir; bir publication'ın birden fazla subscription'a bağlanması (fan-out) hub'dan çıkan

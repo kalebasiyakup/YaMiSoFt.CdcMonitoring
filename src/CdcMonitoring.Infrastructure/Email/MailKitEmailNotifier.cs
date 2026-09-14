@@ -22,11 +22,11 @@ public class MailKitEmailNotifier(
             _ => "[BİLGİ] CDC Monitoring Bildirimi"
         };
 
-        return SendAsync(subject, message, ct);
+        return SendAsync(subject, message, isHtml: false, ct);
     }
 
-    public Task SendReportAsync(string subject, string body, CancellationToken ct = default) =>
-        SendAsync(subject, body, ct);
+    public Task SendReportAsync(string subject, string htmlBody, CancellationToken ct = default) =>
+        SendAsync(subject, htmlBody, isHtml: true, ct);
 
     public async Task<EmailTestResult> SendTestEmailAsync(EmailTestRequest request, CancellationToken ct = default)
     {
@@ -76,7 +76,7 @@ public class MailKitEmailNotifier(
         }
     }
 
-    private async Task SendAsync(string subject, string body, CancellationToken ct)
+    private async Task SendAsync(string subject, string body, bool isHtml, CancellationToken ct)
     {
         var settings = await settingsRepository.GetAsync(ct);
         var recipients = settings.RecipientsCsv
@@ -111,7 +111,7 @@ public class MailKitEmailNotifier(
         }
 
         message.Subject = subject;
-        message.Body = new TextPart("plain") { Text = body };
+        message.Body = isHtml ? new TextPart("html") { Text = body } : new TextPart("plain") { Text = body };
 
         using var client = new SmtpClient();
         await client.ConnectAsync(settings.SmtpHost, settings.SmtpPort,

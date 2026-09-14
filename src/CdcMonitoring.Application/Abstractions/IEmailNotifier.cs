@@ -6,7 +6,9 @@ namespace CdcMonitoring.Application.Abstractions;
 public interface IEmailNotifier
 {
     Task SendAlertAsync(AlertSeverity severity, string message, CancellationToken ct = default);
-    Task SendReportAsync(string subject, string body, CancellationToken ct = default);
+
+    // body, HTML olarak gönderilir (ör. ReconciliationService'in tutarlılık raporu şablonu).
+    Task SendReportAsync(string subject, string htmlBody, CancellationToken ct = default);
 
     // FR-10 ekranından (Ayarlar > E-posta) kaydetmeden önce SMTP yapılandırmasını doğrulamak için:
     // verilen ayarlarla gerçek bir test e-postası gönderir, kalıcı hiçbir kayıt oluşturmaz.
