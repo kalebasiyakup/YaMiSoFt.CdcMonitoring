@@ -101,6 +101,13 @@
   periyodik çalışmaz/geçmiş tutmaz, kullanıcı bir ilişki seçip "Karşılaştır"a bastığında
   canlı sorgular (eksik/fazladan kolon, tip uyuşmazlığı). Kasıtlı olarak on-demand
   tasarlandı: bu bir alarm değil, bir tanı aracı.
+- **Veri Tutarsızlığı alarmı (`AlertType.ReconciliationMismatch`):** `ReconciliationService.RunOnceAsync`,
+  tutarsızlık/hata bulunan her onaylı ilişki için (`UpdateMismatchAlertAsync`) `AlertEvaluationService.
+  EvaluateRuleAsync` ile aynı tetikle/kapat desenini uygular — ama e-postayı **tekrar göndermez**,
+  çünkü aynı çalıştırma sonunda zaten tek bir toplu rapor e-postası gönderiliyor (mevcut yol korundu,
+  yeni `AlertEvent` yalnızca kayda/`/alerts` ekranına görünürlük katıyor). `AlertType.ReconciliationMismatch`
+  enum'ı ve `/alerts` filtre dropdown'ı uzun süre vardı ama bunu üreten kod hiç yazılmamıştı — kullanıcı
+  "e-posta geliyor ama Alarmlar sayfasında görünmüyor" diye fark edene kadar sessiz bir eksiklikti.
 - **Topoloji grafiği üç katmanlı (kaynak → publication/hub → hedef):** `TopologyGraphBuilder.
   BuildHierarchy` her `(SourceConnectionId, PublicationName)` çifti için ayrı bir hub düğümü
   üretir; bir publication'ın birden fazla subscription'a bağlanması (fan-out) hub'dan çıkan
@@ -198,6 +205,15 @@
   dönmüyor. Ayrıca ~25+ subscription/slot kullanan bir test ortamında Postgres'in
   `max_replication_slots`/`max_wal_senders`/`max_logical_replication_workers` (varsayılan
   sırasıyla 10/10/4) ve `max_worker_processes` (varsayılan 8) yetersiz kalır, yükseltilmeli.
+- **`AlertEvaluationService` ve `ReconciliationService`, yalnızca durumu `Confirmed`/`Manual` olan
+  CDC ilişkilerini değerlendirir** (`Status is CdcRelationshipStatus.Confirmed or CdcRelationshipStatus.
+  Manual` filtresi) — yeni keşfedilen bir ilişki `Inferred` ("onay bekliyor") durumundayken sağlıksız
+  olsa bile (`CdcDiscoveryService`'in yazdığı "CDC ilişkisi sağlıksız" log uyarısı görülse bile) **hiçbir
+  zaman alarm/e-posta üretmez**, çünkü `EvaluateCdcRelationshipsAsync`/`ReconcileOneAsync` döngüleri
+  `trusted` listesine hiç girmez. Bu, kullanıcının "log'da hata görüyorum ama alarm gelmiyor" diye
+  kafasının karıştığı gerçek bir senaryoydu — kök neden ilişkinin `/relationships` ekranından henüz
+  onaylanmamış olmasıydı, kod hatası değildi. Bu tür bir şikayet gelirse önce ilgili ilişkinin durumunu
+  kontrol edin.
 - **Chrome automation `computer` aracının `left_click`'i (hem koordinat hem `ref` ile)
   bazen bir `<button type="submit">` üzerinde tıklama olayını sayfaya iletmiyor**
   (görsel olarak buton üzerinde gibi görünse de sunucuda hiçbir istek/log oluşmuyor).
@@ -287,6 +303,9 @@
   TotalCount/OnPageChange) her iki ekranda da aynı. Yeni bir listeleme ekranı eklenirse bu
   deseni tekrarlayın — `GetRecentAsync` gibi eski, filtresiz/sayfalamasız metotlar (Ana
   Sayfa widget'ları gibi başka yerlerde kullanıldığı için) kaldırılmadı, yanına eklendi.
+  Her iki ekranda da filtre satırının sağında (`ms-auto`) bir manuel **Yenile** butonu var
+  (`_isRefreshing` bool'u ile yüklenirken `disabled`, `LoadAsync`'i doğrudan çağırır) —
+  otomatik canlı güncelleme (SignalR push vb.) yok, kullanıcı listeyi elle tazeliyor.
 - **Retention (kayıt saklama) deseni** (Health Check + Veri Tutarlılık Kontrolü kayıtları;
   audit log KASITLI olarak kapsam dışı, kalıcı tutulmalı): `SystemSettings`'te
   `*RetentionDays` alanı + `RetentionCleanupService.RunOnceAsync` (`DeleteOlderThanAsync`
