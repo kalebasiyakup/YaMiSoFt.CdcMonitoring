@@ -24,6 +24,10 @@ public class JobScheduleConfiguration : IEntityTypeConfiguration<JobSchedule>
             new JobSchedule { JobName = JobNames.CdcDiscovery, LastRunAt = null },
             new JobSchedule { JobName = JobNames.AlertEvaluation, LastRunAt = null },
             new JobSchedule { JobName = JobNames.WeeklyReconciliation, LastRunAt = null },
+            // TryClaimAsync yalnızca VAR OLAN satırı günceller (insert etmez) — yeni bir job
+            // eklenirken buraya bir seed satırı eklemek ve migration üretmek zorunludur,
+            // aksi halde job hiçbir zaman claim alamaz ve sessizce hiç çalışmaz.
+            new JobSchedule { JobName = JobNames.SchemaCatalogScan, LastRunAt = null },
             new JobSchedule { JobName = JobNames.RetentionCleanup, LastRunAt = null });
     }
 }

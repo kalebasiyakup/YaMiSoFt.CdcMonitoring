@@ -1,0 +1,473 @@
+@page "/schema-catalog/{ConnectionId:guid}"
+@rendermode InteractiveServer
+@inherits TimeZoneAwareComponentBase
+@using CdcMonitoring.Application.SchemaCatalog
+@using CdcMonitoring.Domain.Entities
+@using CdcMonitoring.Domain.Enums
+@inject SchemaCatalogQueryService CatalogQuery
+@inject SchemaCatalogService CatalogService
+
+<PageTitle>@(_connection?.ConnectionName ?? "Şema Kataloğu")</PageTitle>
+
+<div class="d-flex justify-content-between align-items-start mb-2">
+    <div>
+        <h1 class="mb-0">@(_connection?.ConnectionName ?? "Şema Kataloğu")</h1>
+        @if (_connection is not null)
+        {
+            <p class="text-muted mb-0">@_connection.Host:@_connection.Port / @_connection.DatabaseName</p>
+        }
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="schema-catalog">&laquo; Tüm Veritabanları</a>
+        <button type="button" class="btn btn-outline-primary" disabled="@_isScanning" @onclick="ScanAsync">
+            @(_isScanning ? "Taranıyor..." : "Şimdi Tara")
+        </button>
+    </div>
+</div>
+
+@if (_lastScan is not null)
+{
+    <p class="text-muted">
+        Son tarama: @FormatLocal(_lastScan.StartedAt)
+        (@_lastScan.DurationMs.ToString("N0") ms, @_lastScan.TableCount.ToString("N0") tablo, @_lastScan.ColumnCount.ToString("N0") kolon)
+        @if (!_lastScan.Success)
+        {
+            <span class="badge bg-danger ms-1">Hata</span>
+        }
+    </p>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+<div class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+        <label class="form-label mb-1">Şema</label>
+        <select class="form-select" value="@_schemaName" @onchange="OnSchemaChangedAsync">
+            <option value="">Tümü</option>
+            @foreach (var schema in _schemaNames)
+            {
+                <option value="@schema">@schema</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label mb-1">Ara <InfoTooltip Text="Şema.tablo adında ve kolon adlarında arar — bir kolonun hangi tablolarda geçtiğini bulmak için de kullanılabilir." /></label>
+        <input class="form-control" placeholder="tablo veya kolon adı" value="@_searchText"
+               @onchange="OnSearchChangedAsync" />
+    </div>
+    <div class="col-auto">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="onlyPublished" checked="@_onlyPublished" @onchange="OnOnlyPublishedChangedAsync" />
+            <label class="form-check-label" for="onlyPublished">Yalnızca publication'a dahil</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="includeDropped" checked="@_includeDropped" @onchange="OnIncludeDroppedChangedAsync" />
+            <label class="form-check-label" for="includeDropped">Silinenleri de göster</label>
+        </div>
+    </div>
+</div>
+
+@if (_tables is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else if (_tables.Count == 0)
+{
+    <p><em>Bu filtrelerle eşleşen tablo yok. Katalog hiç taranmadıysa "Şimdi Tara" ile doldurabilirsiniz.</em></p>
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr>
+                <th style="width: 2rem"></th>
+                <th>Tablo</th>
+                <th>Tür</th>
+                <th class="text-end">Kolon</th>
+                <th class="text-end">Tahmini Satır</th>
+                <th class="text-end">Boyut</th>
+                <th>CDC</th>
+                <th>Durum</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in _tables)
+            {
+                <tr class="@(t.DroppedAt is not null ? "table-secondary" : "")">
+                    <td>
+                        <button type="button" class="btn btn-sm btn-link p-0" @onclick="() => ToggleAsync(t.Id)">
+                            @(_expandedTableId == t.Id ? "▾" : "▸")
+                        </button>
+                    </td>
+                    <td>@($"{t.SchemaName}.{t.TableName}")</td>
+                    <td>@KindLabel(t.Kind)</td>
+                    <td class="text-end">@t.Columns.Count(c => c.DroppedAt is null)</td>
+                    <td class="text-end">@(t.EstimatedRowCount?.ToString("N0") ?? "-")</td>
+                    <td class="text-end">@ByteSizeFormatter.Format(t.TotalSizeBytes)</td>
+                    <td>
+                        @if (t.IsPublished)
+                        {
+                            <span class="badge bg-info text-dark">Publication</span>
+                        }
+                    </td>
+                    <td>
+                        @if (t.DroppedAt is not null)
+                        {
+                            <span class="badge bg-secondary" title="@FormatLocal(t.DroppedAt)">Silinmiş</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">Mevcut</span>
+                        }
+                    </td>
+                </tr>
+
+                @if (_expandedTableId == t.Id)
+                {
+                    <tr>
+                        <td colspan="8">
+                            <ul class="nav nav-tabs mb-2">
+                                <li class="nav-item">
+                                    <button type="button" class="nav-link @(_detailTab == "columns" ? "active" : "")" @onclick='() => _detailTab = "columns"'>
+                                        Kolonlar (@t.Columns.Count(c => c.DroppedAt is null))
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <button type="button" class="nav-link @(_detailTab == "indexes" ? "active" : "")" @onclick='() => _detailTab = "indexes"'>
+                                        İndeksler (@t.Indexes.Count(i => i.DroppedAt is null))
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <button type="button" class="nav-link @(_detailTab == "constraints" ? "active" : "")" @onclick='() => _detailTab = "constraints"'>
+                                        Kısıtlar (@t.Constraints.Count(c => c.DroppedAt is null))
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <button type="button" class="nav-link @(_detailTab == "changes" ? "active" : "")" @onclick='() => _detailTab = "changes"'>
+                                        Değişiklikler (@_tableChanges.Count)
+                                    </button>
+                                </li>
+                            </ul>
+
+                            @if (t.Comment is not null)
+                            {
+                                <p class="text-muted"><em>@t.Comment</em></p>
+                            }
+
+                            @if (_detailTab == "columns")
+                            {
+                                <table class="table table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-end" style="width: 3rem">#</th>
+                                            <th>Kolon</th>
+                                            <th>Tip</th>
+                                            <th>Null</th>
+                                            <th>PK</th>
+                                            <th>Varsayılan</th>
+                                            <th>Açıklama</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var c in t.Columns.Where(c => _includeDropped || c.DroppedAt is null).OrderBy(c => c.OrdinalPosition))
+                                        {
+                                            <tr class="@(c.DroppedAt is not null ? "table-secondary" : "")">
+                                                <td class="text-end">@c.OrdinalPosition</td>
+                                                <td>
+                                                    @c.ColumnName
+                                                    @if (c.DroppedAt is not null)
+                                                    {
+                                                        <span class="badge bg-secondary ms-1" title="@FormatLocal(c.DroppedAt)">silinmiş</span>
+                                                    }
+                                                </td>
+                                                <td><code>@FormatType(c)</code></td>
+                                                <td>@(c.IsNullable ? "NULL" : "NOT NULL")</td>
+                                                <td>@(c.IsPrimaryKey ? "✓" : "")</td>
+                                                <td class="text-muted small">@(c.DefaultExpression ?? "-")</td>
+                                                <td class="text-muted small">@(c.Comment ?? "")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                            else if (_detailTab == "indexes")
+                            {
+                                @if (t.Indexes.Count == 0)
+                                {
+                                    <p class="text-muted mb-0"><em>İndeks yok.</em></p>
+                                }
+                                else
+                                {
+                                    <table class="table table-sm mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>İndeks</th>
+                                                <th>Kolonlar</th>
+                                                <th>Tekil</th>
+                                                <th class="text-end">Boyut</th>
+                                                <th>Tanım</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var i in t.Indexes.Where(i => _includeDropped || i.DroppedAt is null))
+                                            {
+                                                <tr class="@(i.DroppedAt is not null ? "table-secondary" : "")">
+                                                    <td>@i.IndexName @if (i.IsPrimary) { <span class="badge bg-primary">PK</span> }</td>
+                                                    <td>@(string.IsNullOrEmpty(i.ColumnsCsv) ? "(ifade)" : i.ColumnsCsv)</td>
+                                                    <td>@(i.IsUnique ? "✓" : "")</td>
+                                                    <td class="text-end">@ByteSizeFormatter.Format(i.SizeBytes)</td>
+                                                    <td class="text-muted small"><code>@i.Definition</code></td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                            }
+                            else if (_detailTab == "constraints")
+                            {
+                                @if (t.Constraints.Count == 0)
+                                {
+                                    <p class="text-muted mb-0"><em>Kısıt yok.</em></p>
+                                }
+                                else
+                                {
+                                    <table class="table table-sm mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Kısıt</th>
+                                                <th>Tür</th>
+                                                <th>Kolonlar</th>
+                                                <th>Referans</th>
+                                                <th>Tanım</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var c in t.Constraints.Where(c => _includeDropped || c.DroppedAt is null))
+                                            {
+                                                <tr class="@(c.DroppedAt is not null ? "table-secondary" : "")">
+                                                    <td>@c.ConstraintName</td>
+                                                    <td>@ConstraintLabel(c.Kind)</td>
+                                                    <td>@c.ColumnsCsv</td>
+                                                    <td>
+                                                        @if (c.ReferencedTable is not null)
+                                                        {
+                                                            @($"{c.ReferencedSchema}.{c.ReferencedTable} ({c.ReferencedColumnsCsv})")
+                                                        }
+                                                    </td>
+                                                    <td class="text-muted small"><code>@c.Definition</code></td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                            }
+                            else
+                            {
+                                @if (_tableChanges.Count == 0)
+                                {
+                                    <p class="text-muted mb-0"><em>Bu tablo için kayıtlı şema değişikliği yok.</em></p>
+                                }
+                                else
+                                {
+                                    <table class="table table-sm mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Zaman</th>
+                                                <th>Değişiklik</th>
+                                                <th>Nesne</th>
+                                                <th>Önce</th>
+                                                <th>Sonra</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var change in _tableChanges)
+                                            {
+                                                <tr>
+                                                    <td class="text-nowrap">@FormatLocal(change.DetectedAt)</td>
+                                                    <td>@SchemaChangeLabels.Describe(change.ChangeType)</td>
+                                                    <td>@(change.ObjectName ?? "-")</td>
+                                                    <td class="text-muted small">@(change.OldValue ?? "-")</td>
+                                                    <td class="text-muted small">@(change.NewValue ?? "-")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <Pagination Page="_page" TotalPages="_totalPages" TotalCount="_totalCount" OnPageChange="ChangePageAsync" />
+}
+
+@code {
+    private const int PageSize = 25;
+
+    [Parameter] public Guid ConnectionId { get; set; }
+
+    private SchemaCatalogConnectionStats? _connection;
+    private SchemaScan? _lastScan;
+    private List<DbTable>? _tables;
+    private List<string> _schemaNames = [];
+    private List<SchemaChangeEvent> _tableChanges = [];
+
+    private string? _schemaName;
+    private string? _searchText;
+    private bool _includeDropped;
+    private bool _onlyPublished;
+    private Guid? _expandedTableId;
+    private string _detailTab = "columns";
+
+    private int _page = 1;
+    private int _totalPages = 1;
+    private int _totalCount;
+    private bool _isScanning;
+    private string? _errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var stats = await CatalogQuery.GetConnectionStatsAsync();
+        _connection = stats.FirstOrDefault(s => s.ConnectionId == ConnectionId);
+        _schemaNames = await CatalogQuery.GetSchemaNamesAsync(ConnectionId);
+        _lastScan = await CatalogQuery.GetLastScanAsync(ConnectionId);
+        await LoadTablesAsync();
+    }
+
+    private async Task LoadTablesAsync()
+    {
+        var filter = new SchemaTableFilter(
+            ConnectionId,
+            string.IsNullOrWhiteSpace(_schemaName) ? null : _schemaName,
+            string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
+            _includeDropped,
+            _onlyPublished);
+
+        var result = await CatalogQuery.GetTablesAsync(filter, _page, PageSize);
+        _tables = result.Items;
+        _totalPages = result.TotalPages;
+        _totalCount = result.TotalCount;
+    }
+
+    private async Task ToggleAsync(Guid tableId)
+    {
+        if (_expandedTableId == tableId)
+        {
+            _expandedTableId = null;
+            _tableChanges = [];
+            return;
+        }
+
+        _expandedTableId = tableId;
+        _detailTab = "columns";
+
+        var table = _tables?.FirstOrDefault(t => t.Id == tableId);
+        _tableChanges = table is null
+            ? []
+            : await CatalogQuery.GetTableChangesAsync(ConnectionId, table.SchemaName, table.TableName);
+    }
+
+    private async Task OnSchemaChangedAsync(ChangeEventArgs e)
+    {
+        _schemaName = e.Value?.ToString();
+        await ResetAndReloadAsync();
+    }
+
+    private async Task OnSearchChangedAsync(ChangeEventArgs e)
+    {
+        _searchText = e.Value?.ToString();
+        await ResetAndReloadAsync();
+    }
+
+    private async Task OnOnlyPublishedChangedAsync(ChangeEventArgs e)
+    {
+        _onlyPublished = e.Value is true;
+        await ResetAndReloadAsync();
+    }
+
+    private async Task OnIncludeDroppedChangedAsync(ChangeEventArgs e)
+    {
+        _includeDropped = e.Value is true;
+        await ResetAndReloadAsync();
+    }
+
+    private async Task ResetAndReloadAsync()
+    {
+        _page = 1;
+        _expandedTableId = null;
+        await LoadTablesAsync();
+    }
+
+    private async Task ChangePageAsync(int page)
+    {
+        _page = page;
+        _expandedTableId = null;
+        await LoadTablesAsync();
+    }
+
+    private async Task ScanAsync()
+    {
+        _isScanning = true;
+        _errorMessage = null;
+
+        try
+        {
+            var scan = await CatalogService.RunForConnectionAsync(ConnectionId);
+            if (!scan.Success)
+                _errorMessage = $"Tarama başarısız: {scan.ErrorMessage}";
+
+            _schemaNames = await CatalogQuery.GetSchemaNamesAsync(ConnectionId);
+            _lastScan = await CatalogQuery.GetLastScanAsync(ConnectionId);
+            await LoadTablesAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Tarama başarısız: {ex.Message}";
+        }
+        finally
+        {
+            _isScanning = false;
+        }
+    }
+
+    private static string KindLabel(DbObjectKind kind) => kind switch
+    {
+        DbObjectKind.PartitionedTable => "Bölümlenmiş Tablo",
+        DbObjectKind.View => "Görünüm",
+        DbObjectKind.MaterializedView => "Materyalize Görünüm",
+        DbObjectKind.ForeignTable => "Dış Tablo",
+        _ => "Tablo"
+    };
+
+    private static string ConstraintLabel(DbConstraintKind kind) => kind switch
+    {
+        DbConstraintKind.PrimaryKey => "Birincil Anahtar",
+        DbConstraintKind.ForeignKey => "Yabancı Anahtar",
+        DbConstraintKind.Unique => "Tekil",
+        DbConstraintKind.Check => "Kontrol",
+        DbConstraintKind.Exclusion => "Dışlama",
+        _ => "Diğer"
+    };
+
+    private static string FormatType(DbColumn c)
+    {
+        if (c.MaxLength is { } length)
+            return $"{c.DataType}({length})";
+
+        // information_schema sayısal tiplerin tümüne precision/scale verir (integer için
+        // 32,0 gibi); bu değer yalnızca kullanıcının belirlediği numeric/decimal tiplerinde
+        // anlamlı, diğerlerinde gürültüdür.
+        if (c.DataType is "numeric" or "decimal" && c.NumericPrecision is { } precision)
+            return c.NumericScale is { } scale && scale > 0
+                ? $"{c.DataType}({precision},{scale})"
+                : $"{c.DataType}({precision})";
+
+        return c.DataType;
+    }
+}

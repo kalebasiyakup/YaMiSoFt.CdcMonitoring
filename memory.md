@@ -66,6 +66,30 @@
   yalnızca bootstrap ayarları kalır (`ConnectionStrings:MetadataDb`,
   `DataProtection:CertificatePath`, `Quartz:UseClusteredPostgresStore`) — bunlar
   DB'ye bağlanmadan önce gerekli oldukları için config'de kalmak zorunda.
+- **Şema Raporu export'u CSV değil gerçek .xlsx (ClosedXML):** CSV'de ayraç ve kodlama
+  Excel'in bölge ayarına bağlı (Türkçe Excel ";" bekler, UTF-8 BOM'suz Türkçe karakterler
+  bozuluyor). Dosya, Blazor bileşeninden değil `Program.cs`'teki `/schema-catalog/report.xlsx`
+  minimal API endpoint'inden üretilir; ekrandaki filtreler query string olarak taşınır ve
+  sayfalama UYGULANMAZ (kullanıcı gördüğü sayfayı değil tüm sonucu indirmek ister),
+  `SchemaCatalogExcelExporter.MaxRows` ile 50.000 satırda sınırlanır. Bağlantıya `target="_top"`
+  konulmuştur: target taşıyan linkleri Blazor'un enhanced navigation'ı ele geçirmez, dosya
+  indirmesi tarayıcıya bırakılır.
+- **Şema kataloğu "güncel durum + değişiklik günlüğü" olarak saklanır** (her taramanın
+  tam snapshot'ı olarak DEĞİL): `DbTables/DbColumns/DbIndexes/DbConstraints` her nesne için
+  tek satır tutar (`FirstSeenAt`/`LastSeenAt`/`DroppedAt`), farklar `SchemaChangeEvents`'e
+  yazılır. Kullanıcı bu modeli açıkça seçti. Gerekçe: 6 saatte bir × N bağlantı × binlerce
+  tablo snapshot'ı hacmi hızla patlatır; bu modelde "şu an ne var" tek sorgu, "ne zaman ne
+  değişti" ayrı ve kompakt. Kaynakta kalmayan nesne SİLİNMEZ, `DroppedAt` ile işaretlenir —
+  "bu kolon ne zaman kayboldu" cevaplanabilir kalsın diye.
+- **Katalog taramasında ilk tarama ve tablo düşüşü/geri gelişi olay üretmez:** ilk doldurmada
+  tüm katalog "yeni" görüneceğinden binlerce `TableAdded` kaydı günlüğü kullanılamaz hale
+  getirirdi; bir tablo düşerken/geri gelirken de tek bir tablo seviyesi olay yazılır, kolon/
+  indeks/kısıt başına ayrıca olay üretilmez (`suppressChildEvents`). Boyut/tahmini satır
+  sayısı/publication üyeliği değişimleri de şema değişikliği sayılmaz.
+- **Başarısız katalog taraması katalog verisine dokunmaz:** erişilemeyen bir sunucunun tüm
+  tabloları "silinmiş" işaretlenirse hem katalog bozulur hem sunucu dönünce binlerce sahte
+  "eklendi" kaydı üretilir. Aynı prensip `CdcDiscoveryService`'teki `succeededConnections`
+  mantığıyla paralel.
 - **Tick-tabanlı zamanlama (Quartz job'ları değil, tek `SchedulerTickJob`):** Dört
   ayrı Quartz job/trigger yerine tek bir job her 15 sn'de bir "yoklama" yapıyor,
   DB'deki güncel interval ayarına göre iş çalıştırılıp çalıştırılmayacağına karar
@@ -145,6 +169,39 @@
 - **`dotnet ef migrations add` sırasında `HostAbortedException` fırlaması normaldir**
   — EF Core Design'ın host'u durdurma şeklidir, `"Done."` çıktısı varsa migration
   başarıyla oluşmuştur, hata değildir.
+- **Yeni bir zamanlanmış iş eklerken `JobScheduleConfiguration`'daki `HasData` seed'ine satır
+  eklemek ZORUNLUDUR** (+ migration). `JobScheduleRepository.TryClaimAsync` yalnızca VAR OLAN
+  satırı koşullu `UPDATE` ile günceller, satır yoksa insert etmez — bu yüzden seed satırı
+  olmayan bir job hiçbir zaman claim alamaz ve **sessizce hiç çalışmaz** (hata da vermez).
+  Şema katalog job'unda tam olarak bu oldu; ancak canlı testte (JobSchedules tablosuna bakarak)
+  yakalandı. Yeni job eklerken JobSchedules tablosundan `LastRunAt`'in ilerlediğini doğrulayın.
+- **Aynı sorguda birden fazla koleksiyon `Include` edilirse EF kartezyen çarpım üretir**
+  (tablo başına kolon × indeks × kısıt satırı) ve `MultipleCollectionIncludeWarning` loglar.
+  Katalog sorgularında `AsSplitQuery()` kullanılıyor. Docker loglarında bu uyarıyı görürseniz
+  kaynağı budur; koleksiyon sayısı ikiden fazlaysa split query neredeyse her zaman doğru seçim.
+- **EF Core: kendi oluşturduğunuz bir record'a `Select` ile projeksiyon yaptıktan SONRA
+  `Where`/`OrderBy` eklerseniz sorgu çevrilemez** ("The LINQ expression could not be
+  translated"). Filtreleme/sıralama entity üzerinde yapılmalı, projeksiyon en sona
+  konmalıdır (bkz. `SchemaCatalogRepository.GetPagedColumnReportAsync`).
+- **EF Core: takip edilen bir entity'nin koleksiyonuna ANAHTARI DOLU bir çocuk eklerseniz
+  INSERT değil UPDATE üretir** ve satır olmadığı için `DbUpdateConcurrencyException`
+  ("expected to affect 1 row(s), but actually affected 0") atar. Guid PK'ler EF'te
+  `ValueGeneratedOnAdd` olduğundan `Id = Guid.NewGuid()` atamak entity'yi "var olan satır"
+  gibi gösterir. Çözüm: `DbContext.Add` ile açıkça eklenmeyen, yalnızca navigation
+  koleksiyonuna eklenen nesnelerde (bkz. `SchemaCatalogService.CreateColumn/CreateIndex/
+  CreateConstraint`) Id'yi ATAMAYIN, EF üretsin. Bu hata ilk taramada görünmez — yeni
+  tablonun parent'ı zaten `Added` olduğu için çocukları da `Added` olur; yalnızca MEVCUT
+  bir tabloya kolon eklendiğinde patlar.
+- **`information_schema.columns` materyalize görünümlerin kolonlarını HİÇ göstermez** (ve
+  büyük kataloglarda yavaştır). Katalog taraması bu yüzden kolonları doğrudan
+  `pg_attribute` + `format_type` + `information_schema._pg_char_max_length/_pg_numeric_*`
+  ile okur. Ayrıca `information_schema.columns.ordinal_position`, silinmiş kolonlar
+  yüzünden `pg_attribute.attnum` ile aynı olmayabilir — `col_description`'a ordinal_position
+  geçirmek yanlış kolonun açıklamasını getirir.
+- **`ReadOnlyGuardTests` artık kelime sınırlı (`DROP` gibi) arıyor:** düz "contains"
+  kontrolü `pg_attribute.attisdropped` gibi meşru katalog kolon adlarını ihlal sayıyordu.
+  Yeni sorgu sabiti eklerken `[InlineData]` listesine eklemeyi unutsanız bile, tüm
+  `...Query` sabitlerini yansımayla tarayan test kapsar.
 - **Blazor Server ilk form submit'i bazen sessizce başarısız olur** (SignalR circuit
   henüz tam kurulmamışken): "Attempting to reconnect to the server" görülür, birkaç
   saniye bekleyip aynı butona tekrar tıklamak yeterlidir. Bu oturumda defalarca
@@ -330,7 +387,9 @@
   Her iki ekranda da filtre satırının sağında (`ms-auto`) bir manuel **Yenile** butonu var
   (`_isRefreshing` bool'u ile yüklenirken `disabled`, `LoadAsync`'i doğrudan çağırır) —
   otomatik canlı güncelleme (SignalR push vb.) yok, kullanıcı listeyi elle tazeliyor.
-- **Retention (kayıt saklama) deseni** (Health Check + Veri Tutarlılık Kontrolü kayıtları;
+- **Retention (kayıt saklama) deseni** (Health Check, Veri Tutarlılık Kontrolü, şema tarama
+  geçmişi ve şema değişiklik kayıtları — katalogun KENDİSİ kapsam dışı, o geçmiş değil güncel
+  durumdur;
   audit log KASITLI olarak kapsam dışı, kalıcı tutulmalı): `SystemSettings`'te
   `*RetentionDays` alanı + `RetentionCleanupService.RunOnceAsync` (`DeleteOlderThanAsync`
   ile `ExecuteDeleteAsync` — toplu, entity yüklemeden siler) + `SchedulerTickJob`'da sabit

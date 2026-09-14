@@ -1,0 +1,19 @@
+/*
+ * Rapor listesinde satırlar tek tek değil, TABLO bloğu olarak okunur: aynı tabloya ait
+ * satırlar aynı zemini paylaşır, tablo değiştiğinde zemin döner ve bloğun ilk satırına
+ * belirgin bir ayraç çizgisi konur. Klasik satır bazlı zebra bu ekranda tablo sınırlarını
+ * gizlediği için tercih edilmedi.
+ *
+ * Zemin app.css'teki hover deseniyle aynı şekilde <tr> üzerinde verilir (Bootstrap td
+ * zeminini --bs-table-bg: transparent ile boş bıraktığı için tr zemini görünür). Ayraç
+ * çizgisi ise <td> üzerinde durmalıdır: tablo border-collapse: separate kullanıyor ve
+ * bu modda <tr> kenarlıkları çizilmez.
+ */
+
+.table-group-alt {
+    background-color: var(--color-primary-soft);
+}
+
+.table-group-start > td {
+    border-top: 2px solid var(--color-border);
+}

@@ -4,6 +4,7 @@ using CdcMonitoring.Application.CdcDiscovery;
 using CdcMonitoring.Application.HealthChecks;
 using CdcMonitoring.Application.Reconciliation;
 using CdcMonitoring.Application.Retention;
+using CdcMonitoring.Application.SchemaCatalog;
 using Microsoft.Extensions.Logging;
 using Quartz;
 
@@ -25,6 +26,7 @@ public class SchedulerTickJob(
     CdcDiscoveryService discoveryService,
     AlertEvaluationService alertEvaluationService,
     ReconciliationService reconciliationService,
+    SchemaCatalogService schemaCatalogService,
     RetentionCleanupService retentionCleanupService,
     IClock clock,
     ILogger<SchedulerTickJob> logger) : IJob
@@ -52,6 +54,15 @@ public class SchedulerTickJob(
 
         await RunIfDueAsync(JobNames.WeeklyReconciliation, TimeSpan.FromSeconds(settings.ReconciliationIntervalSeconds), now,
             () => reconciliationService.RunOnceAsync(ct), ct);
+
+        // Katalog taraması Ayarlar'dan tamamen kapatılabilir (büyük kataloglarda maliyetli
+        // olabildiği için). Kapalıyken claim de alınmaz; kullanıcı katalog ekranından elle
+        // tarama yapmaya devam edebilir.
+        if (settings.SchemaCatalogEnabled)
+        {
+            await RunIfDueAsync(JobNames.SchemaCatalogScan, TimeSpan.FromSeconds(settings.SchemaCatalogIntervalSeconds), now,
+                () => schemaCatalogService.RunOnceAsync(ct), ct);
+        }
 
         await RunIfDueAsync(JobNames.RetentionCleanup, RetentionCleanupInterval, now,
             () => retentionCleanupService.RunOnceAsync(ct), ct);

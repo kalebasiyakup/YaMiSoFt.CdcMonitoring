@@ -42,6 +42,13 @@ public class SystemSettingsService(
         s.HealthyWalStatusesCsv = string.Join(",", request.HealthyWalStatuses);
         s.ReconciliationIntervalSeconds = request.ReconciliationIntervalSeconds;
         s.ReconciliationRetentionDays = request.ReconciliationRetentionDays;
+        s.SchemaCatalogEnabled = request.SchemaCatalogEnabled;
+        s.SchemaCatalogIntervalSeconds = request.SchemaCatalogIntervalSeconds;
+        s.SchemaCatalogMaxDegreeOfParallelism = request.SchemaCatalogMaxDegreeOfParallelism;
+        s.SchemaCatalogTimeoutSeconds = request.SchemaCatalogTimeoutSeconds;
+        s.SchemaCatalogExcludedSchemasCsv = string.Join(",", request.SchemaCatalogExcludedSchemas);
+        s.SchemaChangeRetentionDays = request.SchemaChangeRetentionDays;
+        s.SchemaScanRetentionDays = request.SchemaScanRetentionDays;
         s.EmailEnabled = request.EmailEnabled;
         s.SmtpHost = request.SmtpHost;
         s.SmtpPort = request.SmtpPort;
@@ -121,6 +128,13 @@ public class SystemSettingsService(
         s.HealthyWalStatusesCsv,
         s.ReconciliationIntervalSeconds,
         s.ReconciliationRetentionDays,
+        s.SchemaCatalogEnabled,
+        s.SchemaCatalogIntervalSeconds,
+        s.SchemaCatalogMaxDegreeOfParallelism,
+        s.SchemaCatalogTimeoutSeconds,
+        s.SchemaCatalogExcludedSchemasCsv,
+        s.SchemaChangeRetentionDays,
+        s.SchemaScanRetentionDays,
         s.EmailEnabled,
         s.SmtpHost,
         s.SmtpPort,
@@ -147,6 +161,13 @@ public class SystemSettingsService(
         SplitCsv(s.HealthyWalStatusesCsv),
         s.ReconciliationIntervalSeconds,
         s.ReconciliationRetentionDays,
+        s.SchemaCatalogEnabled,
+        s.SchemaCatalogIntervalSeconds,
+        s.SchemaCatalogMaxDegreeOfParallelism,
+        s.SchemaCatalogTimeoutSeconds,
+        SplitCsv(s.SchemaCatalogExcludedSchemasCsv),
+        s.SchemaChangeRetentionDays,
+        s.SchemaScanRetentionDays,
         s.EmailEnabled,
         s.SmtpHost,
         s.SmtpPort,

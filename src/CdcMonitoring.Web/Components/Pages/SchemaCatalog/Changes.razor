@@ -1,0 +1,134 @@
+@page "/schema-catalog/changes"
+@rendermode InteractiveServer
+@inherits TimeZoneAwareComponentBase
+@using CdcMonitoring.Application.SchemaCatalog
+@using CdcMonitoring.Domain.Entities
+@using CdcMonitoring.Domain.Enums
+@inject SchemaCatalogQueryService CatalogQuery
+
+<PageTitle>Şema Değişiklikleri</PageTitle>
+
+<div class="d-flex justify-content-between align-items-start mb-2">
+    <h1>Şema Değişiklikleri</h1>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="schema-catalog">&laquo; Şema Kataloğu</a>
+        <a class="btn btn-outline-secondary" href="schema-catalog/report">Şema Raporu</a>
+    </div>
+</div>
+
+<p><em>
+    İki katalog taraması arasında tespit edilen tablo/kolon/indeks/kısıt değişiklikleri.
+    Bir bağlantı ilk kez tarandığında kayıt üretilmez (tüm katalog "yeni" görüneceği için);
+    bu ekran ikinci taramadan itibaren dolar.
+</em></p>
+
+<div class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+        <label class="form-label mb-1">Veritabanı</label>
+        <select class="form-select" @onchange="OnConnectionChangedAsync">
+            <option value="">Tümü</option>
+            @foreach (var c in _connections)
+            {
+                <option value="@c.ConnectionId">@c.ConnectionName</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">Değişiklik Türü</label>
+        <select class="form-select" @onchange="OnChangeTypeChangedAsync">
+            <option value="">Tümü</option>
+            @foreach (var type in Enum.GetValues<SchemaChangeType>())
+            {
+                <option value="@type">@SchemaChangeLabels.Describe(type)</option>
+            }
+        </select>
+    </div>
+</div>
+
+@if (_changes is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else if (_changes.Count == 0)
+{
+    <p><em>Bu filtrelerle eşleşen şema değişikliği yok.</em></p>
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr>
+                <th>Zaman</th>
+                <th>Veritabanı</th>
+                <th>Tablo</th>
+                <th>Değişiklik</th>
+                <th>Nesne</th>
+                <th>Önce</th>
+                <th>Sonra</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var change in _changes)
+            {
+                <tr>
+                    <td class="text-nowrap">@FormatLocal(change.DetectedAt)</td>
+                    <td>@(change.Connection?.Name ?? "-")</td>
+                    <td>@($"{change.SchemaName}.{change.TableName}")</td>
+                    <td><span class="badge @SchemaChangeLabels.BadgeClass(change.ChangeType)">@SchemaChangeLabels.Describe(change.ChangeType)</span></td>
+                    <td>@(change.ObjectName ?? "-")</td>
+                    <td class="text-muted small">@(change.OldValue ?? "-")</td>
+                    <td class="text-muted small">@(change.NewValue ?? "-")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <Pagination Page="_page" TotalPages="_totalPages" TotalCount="_totalCount" OnPageChange="ChangePageAsync" />
+}
+
+@code {
+    private const int PageSize = 50;
+
+    private List<SchemaChangeEvent>? _changes;
+    private List<SchemaCatalogConnectionStats> _connections = [];
+
+    private Guid? _connectionId;
+    private SchemaChangeType? _changeType;
+    private int _page = 1;
+    private int _totalPages = 1;
+    private int _totalCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _connections = await CatalogQuery.GetConnectionStatsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await CatalogQuery.GetChangesAsync(new SchemaChangeFilter(_connectionId, _changeType), _page, PageSize);
+        _changes = result.Items;
+        _totalPages = result.TotalPages;
+        _totalCount = result.TotalCount;
+    }
+
+    private async Task OnConnectionChangedAsync(ChangeEventArgs e)
+    {
+        _connectionId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnChangeTypeChangedAsync(ChangeEventArgs e)
+    {
+        _changeType = Enum.TryParse<SchemaChangeType>(e.Value?.ToString(), out var type) ? type : null;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ChangePageAsync(int page)
+    {
+        _page = page;
+        await LoadAsync();
+    }
+}

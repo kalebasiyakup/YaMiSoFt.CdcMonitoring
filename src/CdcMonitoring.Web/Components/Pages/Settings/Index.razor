@@ -33,6 +33,9 @@ else
                 <button type="button" class="nav-link @(_activeTab == "reconciliation" ? "active" : "")" @onclick='() => _activeTab = "reconciliation"'>Veri Tutarlılık Kontrolü</button>
             </li>
             <li class="nav-item">
+                <button type="button" class="nav-link @(_activeTab == "schemacatalog" ? "active" : "")" @onclick='() => _activeTab = "schemacatalog"'>Şema Kataloğu</button>
+            </li>
+            <li class="nav-item">
                 <button type="button" class="nav-link @(_activeTab == "email" ? "active" : "")" @onclick='() => _activeTab = "email"'>E-posta (SMTP)</button>
             </li>
         </ul>
@@ -131,6 +134,59 @@ else
                 <div class="col-md-3">
                     <label class="form-label">Kayıt Saklama Süresi (gün) <InfoTooltip Text="Bu süreden eski veri tutarlılık kontrolü sonuçları düzenli olarak silinir (audit log bundan etkilenmez, kalıcı tutulur)." /></label>
                     <InputNumber class="form-control" @bind-Value="_model.ReconciliationRetentionDays" />
+                </div>
+            </div>
+        }
+
+        @if (_activeTab == "schemacatalog")
+        {
+            <div class="mb-3 form-check">
+                <InputCheckbox class="form-check-input" @bind-Value="_model.SchemaCatalogEnabled" id="schemaCatalogEnabled" />
+                <label class="form-check-label" for="schemaCatalogEnabled">Periyodik şema katalog taraması aktif</label>
+                <InfoTooltip Text="Kapalıyken katalog taraması hiç çalışmaz; mevcut katalog verisi ve ekranlar olduğu gibi kalır, Şema Kataloğu ekranından 'Şimdi Tara' ile elle tarama yapılabilir." />
+            </div>
+            @if (!_model.SchemaCatalogEnabled)
+            {
+                <div class="alert alert-warning py-2">
+                    Periyodik tarama kapalı — katalog yalnızca Şema Kataloğu ekranından elle taratıldığında güncellenir.
+                </div>
+            }
+            <div class="row mb-3">
+                <div class="col-md-2">
+                    <label class="form-label">Tarama Sıklığı <InfoTooltip Text="Kayıtlı her bağlantının tablo/kolon/indeks/kısıt kataloğunun ne sıklıkla yeniden taranacağı. Tarama salt-okumadır, izlenen veritabanına yazmaz." /></label>
+                    <InputNumber class="form-control" @bind-Value="_model.SchemaCatalogIntervalValue" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <InputSelect class="form-select" @bind-Value="_model.SchemaCatalogIntervalUnit">
+                        <option value="@ReconciliationIntervalUnit.Minutes">Dakika</option>
+                        <option value="@ReconciliationIntervalUnit.Hours">Saat</option>
+                        <option value="@ReconciliationIntervalUnit.Days">Gün</option>
+                    </InputSelect>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Paralellik <InfoTooltip Text="Bir tarama turunda aynı anda kaç bağlantının kataloğunun okunacağı." /></label>
+                    <InputNumber class="form-control" @bind-Value="_model.SchemaCatalogMaxDegreeOfParallelism" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Zaman Aşımı (sn) <InfoTooltip Text="Tek bir bağlantının katalog taraması bu süreyi aşarsa iptal edilir. Çok tablolu veritabanlarında health check'ten daha uzun tutulmalıdır." /></label>
+                    <InputNumber class="form-control" @bind-Value="_model.SchemaCatalogTimeoutSeconds" />
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label class="form-label">Hariç Tutulan Şemalar (virgülle ayrılmış) <InfoTooltip Text="Bu şemalar katalog taramasına dahil edilmez. pg_ ile başlayan sistem şemaları bu listeden bağımsız olarak her zaman atlanır." /></label>
+                    <InputText class="form-control" @bind-Value="_model.SchemaCatalogExcludedSchemas" placeholder="pg_catalog,information_schema,pg_toast" />
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Değişiklik Saklama Süresi (gün) <InfoTooltip Text="Bu süreden eski şema değişiklik kayıtları düzenli olarak silinir. Katalogun kendisi (güncel tablo/kolon listesi) silinmez." /></label>
+                    <InputNumber class="form-control" @bind-Value="_model.SchemaChangeRetentionDays" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Tarama Geçmişi Saklama Süresi (gün) <InfoTooltip Text="Bu süreden eski katalog tarama kayıtları (ne zaman/ne kadar sürdü) düzenli olarak silinir." /></label>
+                    <InputNumber class="form-control" @bind-Value="_model.SchemaScanRetentionDays" />
                 </div>
             </div>
         }
@@ -258,6 +314,13 @@ else
                 SplitCsv(_model.HealthyWalStatuses),
                 ToSeconds(_model.ReconciliationIntervalValue, _model.ReconciliationIntervalUnit),
                 _model.ReconciliationRetentionDays,
+                _model.SchemaCatalogEnabled,
+                ToSeconds(_model.SchemaCatalogIntervalValue, _model.SchemaCatalogIntervalUnit),
+                _model.SchemaCatalogMaxDegreeOfParallelism,
+                _model.SchemaCatalogTimeoutSeconds,
+                SplitCsv(_model.SchemaCatalogExcludedSchemas),
+                _model.SchemaChangeRetentionDays,
+                _model.SchemaScanRetentionDays,
                 _model.EmailEnabled,
                 _model.SmtpHost,
                 _model.SmtpPort,
@@ -325,6 +388,14 @@ else
         ReconciliationIntervalValue = FromSeconds(dto.ReconciliationIntervalSeconds, out var reconciliationUnit),
         ReconciliationIntervalUnit = reconciliationUnit,
         ReconciliationRetentionDays = dto.ReconciliationRetentionDays,
+        SchemaCatalogEnabled = dto.SchemaCatalogEnabled,
+        SchemaCatalogIntervalValue = FromSeconds(dto.SchemaCatalogIntervalSeconds, out var schemaCatalogUnit),
+        SchemaCatalogIntervalUnit = schemaCatalogUnit,
+        SchemaCatalogMaxDegreeOfParallelism = dto.SchemaCatalogMaxDegreeOfParallelism,
+        SchemaCatalogTimeoutSeconds = dto.SchemaCatalogTimeoutSeconds,
+        SchemaCatalogExcludedSchemas = string.Join(",", dto.SchemaCatalogExcludedSchemas),
+        SchemaChangeRetentionDays = dto.SchemaChangeRetentionDays,
+        SchemaScanRetentionDays = dto.SchemaScanRetentionDays,
         EmailEnabled = dto.EmailEnabled,
         SmtpHost = dto.SmtpHost,
         SmtpPort = dto.SmtpPort,

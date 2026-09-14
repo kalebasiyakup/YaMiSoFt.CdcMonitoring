@@ -286,6 +286,298 @@ namespace CdcMonitoring.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.DbColumn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasComment("Katalog kolon kaydının birincil anahtarı.");
+
+                    b.Property<string>("ColumnName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("Kolon adı.");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasComment("Kolonun PostgreSQL'deki açıklaması.");
+
+                    b.Property<string>("DataType")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("Kolonun veri tipi (information_schema.columns.data_type).");
+
+                    b.Property<string>("DefaultExpression")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasComment("Kolonun varsayılan değer ifadesi; yoksa null.");
+
+                    b.Property<DateTimeOffset?>("DroppedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Kolonun kaynakta artık bulunmadığının ilk tespit edildiği zaman; null ise hâlâ mevcut.");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Kolonun katalogda ilk görüldüğü zaman.");
+
+                    b.Property<bool>("IsNullable")
+                        .HasColumnType("boolean")
+                        .HasComment("Kolon NULL kabul ediyor mu.");
+
+                    b.Property<bool>("IsPrimaryKey")
+                        .HasColumnType("boolean")
+                        .HasComment("Kolon birincil anahtarın parçası mı.");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Kolonun en son hangi taramada görüldüğü.");
+
+                    b.Property<int?>("MaxLength")
+                        .HasColumnType("integer")
+                        .HasComment("Metin tipleri için karakter uzunluğu sınırı.");
+
+                    b.Property<int?>("NumericPrecision")
+                        .HasColumnType("integer")
+                        .HasComment("Sayısal tipler için toplam basamak sayısı.");
+
+                    b.Property<int?>("NumericScale")
+                        .HasColumnType("integer")
+                        .HasComment("Sayısal tipler için ondalık basamak sayısı.");
+
+                    b.Property<int>("OrdinalPosition")
+                        .HasColumnType("integer")
+                        .HasComment("Kolonun tablodaki sırası (1'den başlar).");
+
+                    b.Property<Guid>("TableId")
+                        .HasColumnType("uuid")
+                        .HasComment("Kolonun ait olduğu DbTable.Id.");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ColumnName");
+
+                    b.HasIndex("TableId", "ColumnName")
+                        .IsUnique();
+
+                    b.ToTable("DbColumns", t =>
+                        {
+                            t.HasComment("Şema kataloğunun kolon seviyesi. DbTable gibi silinmez; kaynakta kalmayan kolonlar DroppedAt ile işaretlenir.");
+                        });
+                });
+
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.DbConstraint", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasComment("Katalog kısıt kaydının birincil anahtarı.");
+
+                    b.Property<string>("ColumnsCsv")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasComment("Kısıta dahil kolon adları, sırasıyla virgülle ayrılmış.");
+
+                    b.Property<string>("ConstraintName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("Kısıt adı.");
+
+                    b.Property<string>("Definition")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasComment("pg_get_constraintdef çıktısı; yalnızca görüntüleme amaçlı saklanır.");
+
+                    b.Property<DateTimeOffset?>("DroppedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Kısıtın kaynakta artık bulunmadığının ilk tespit edildiği zaman; null ise hâlâ mevcut.");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Kısıtın katalogda ilk görüldüğü zaman.");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasComment("Kısıt türü: PrimaryKey, ForeignKey, Unique, Check, Exclusion, Other.");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Kısıtın en son hangi taramada görüldüğü.");
+
+                    b.Property<string>("ReferencedColumnsCsv")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasComment("Yalnızca ForeignKey kısıtlarında dolu: hedef kolon adları.");
+
+                    b.Property<string>("ReferencedSchema")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("Yalnızca ForeignKey kısıtlarında dolu: hedef tablonun şeması.");
+
+                    b.Property<string>("ReferencedTable")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("Yalnızca ForeignKey kısıtlarında dolu: hedef tablonun adı.");
+
+                    b.Property<Guid>("TableId")
+                        .HasColumnType("uuid")
+                        .HasComment("Kısıtın ait olduğu DbTable.Id.");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TableId", "ConstraintName")
+                        .IsUnique();
+
+                    b.ToTable("DbConstraints", t =>
+                        {
+                            t.HasComment("Şema kataloğunun kısıt seviyesi (PK/FK/unique/check). Definition alanı pg_get_constraintdef çıktısının aynen saklanmış halidir; uygulama bu metni hiçbir zaman çalıştırmaz (FR-14).");
+                        });
+                });
+
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.DbIndex", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasComment("Katalog indeks kaydının birincil anahtarı.");
+
+                    b.Property<string>("ColumnsCsv")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasComment("İndekse dahil kolon adları, sırasıyla virgülle ayrılmış.");
+
+                    b.Property<string>("Definition")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasComment("pg_get_indexdef çıktısı; yalnızca görüntüleme amaçlı saklanır.");
+
+                    b.Property<DateTimeOffset?>("DroppedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("İndeksin kaynakta artık bulunmadığının ilk tespit edildiği zaman; null ise hâlâ mevcut.");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("İndeksin katalogda ilk görüldüğü zaman.");
+
+                    b.Property<string>("IndexName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("İndeks adı.");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("boolean")
+                        .HasComment("İndeks birincil anahtarın indeksi mi.");
+
+                    b.Property<bool>("IsUnique")
+                        .HasColumnType("boolean")
+                        .HasComment("İndeks tekil (unique) mi.");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("İndeksin en son hangi taramada görüldüğü.");
+
+                    b.Property<long?>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasComment("İndeksin disk boyutu (byte).");
+
+                    b.Property<Guid>("TableId")
+                        .HasColumnType("uuid")
+                        .HasComment("İndeksin ait olduğu DbTable.Id.");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TableId", "IndexName")
+                        .IsUnique();
+
+                    b.ToTable("DbIndexes", t =>
+                        {
+                            t.HasComment("Şema kataloğunun indeks seviyesi. Definition alanı pg_get_indexdef çıktısının aynen saklanmış halidir; uygulama bu metni hiçbir zaman çalıştırmaz (FR-14).");
+                        });
+                });
+
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.DbTable", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasComment("Katalog tablo kaydının birincil anahtarı.");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasComment("Tablonun PostgreSQL'deki açıklaması.");
+
+                    b.Property<Guid>("ConnectionId")
+                        .HasColumnType("uuid")
+                        .HasComment("Tablonun bulunduğu PgConnection.Id.");
+
+                    b.Property<DateTimeOffset?>("DroppedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Tablonun kaynakta artık bulunmadığının ilk tespit edildiği zaman; null ise hâlâ mevcut.");
+
+                    b.Property<long?>("EstimatedRowCount")
+                        .HasColumnType("bigint")
+                        .HasComment("pg_class.reltuples — planlayıcının tahmini satır sayısı, gerçek COUNT(*) değildir.");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Tablonun katalogda ilk görüldüğü zaman.");
+
+                    b.Property<bool>("HasPrimaryKey")
+                        .HasColumnType("boolean")
+                        .HasComment("Tablonun birincil anahtarı var mı.");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean")
+                        .HasComment("Tablo bu bağlantıdaki herhangi bir publication'a dahil mi (CDC kapsamında mı).");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasComment("Nesne türü: Table, PartitionedTable, View, MaterializedView, ForeignTable.");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Tablonun en son hangi taramada görüldüğü.");
+
+                    b.Property<string>("SchemaName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("PostgreSQL şema adı (ör. public).");
+
+                    b.Property<string>("TableName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("Tablo/görünüm adı.");
+
+                    b.Property<long?>("TotalSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasComment("pg_total_relation_size — indeks ve TOAST dahil toplam boyut (byte).");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConnectionId", "SchemaName", "TableName")
+                        .IsUnique();
+
+                    b.ToTable("DbTables", t =>
+                        {
+                            t.HasComment("Şema kataloğunun tablo/görünüm seviyesi. Her tarama bu satırları günceller; kaynakta artık bulunmayan nesneler silinmez, DroppedAt ile işaretlenir.");
+                        });
+                });
+
             modelBuilder.Entity("CdcMonitoring.Domain.Entities.JobSchedule", b =>
                 {
                     b.Property<string>("JobName")
@@ -320,6 +612,10 @@ namespace CdcMonitoring.Infrastructure.Persistence.Migrations
                         new
                         {
                             JobName = "weekly-reconciliation"
+                        },
+                        new
+                        {
+                            JobName = "schema-catalog-scan"
                         },
                         new
                         {
@@ -476,6 +772,118 @@ namespace CdcMonitoring.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.SchemaChangeEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasComment("Değişiklik kaydının birincil anahtarı.");
+
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasComment("Değişiklik türü (ör. ColumnAdded, ColumnTypeChanged, TableDropped).");
+
+                    b.Property<Guid>("ConnectionId")
+                        .HasColumnType("uuid")
+                        .HasComment("Değişikliğin görüldüğü PgConnection.Id.");
+
+                    b.Property<DateTimeOffset>("DetectedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Değişikliğin tespit edildiği tarama zamanı.");
+
+                    b.Property<string>("NewValue")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasComment("Değişiklik sonrası değer (varsa).");
+
+                    b.Property<string>("ObjectName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("Değişen alt nesnenin adı (kolon/indeks/kısıt); tablo seviyesi değişimlerde null.");
+
+                    b.Property<string>("OldValue")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasComment("Değişiklik öncesi değer (varsa).");
+
+                    b.Property<string>("SchemaName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("Değişen nesnenin şeması.");
+
+                    b.Property<string>("TableName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasComment("Değişen nesnenin tablosu.");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DetectedAt");
+
+                    b.HasIndex("ConnectionId", "DetectedAt");
+
+                    b.ToTable("SchemaChangeEvents", t =>
+                        {
+                            t.HasComment("İki katalog taraması arasında tespit edilen şema değişiklikleri. Katalog tabloları yalnızca güncel durumu tuttuğu için değişim geçmişi burada birikir; saklama süresi SystemSettings.SchemaChangeRetentionDays ile sınırlanır.");
+                        });
+                });
+
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.SchemaScan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasComment("Tarama kaydının birincil anahtarı.");
+
+                    b.Property<int>("ColumnCount")
+                        .HasColumnType("integer")
+                        .HasComment("Taramada bulunan toplam kolon sayısı.");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Taramanın bittiği zaman (hata halinde de doldurulur).");
+
+                    b.Property<Guid>("ConnectionId")
+                        .HasColumnType("uuid")
+                        .HasComment("Taranan PgConnection.Id.");
+
+                    b.Property<double>("DurationMs")
+                        .HasColumnType("double precision")
+                        .HasComment("Taramanın süresi (milisaniye).");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasComment("Tarama başarısızsa hata mesajı.");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Taramanın başladığı zaman.");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("boolean")
+                        .HasComment("Tarama hatasız tamamlandıysa true.");
+
+                    b.Property<int>("TableCount")
+                        .HasColumnType("integer")
+                        .HasComment("Taramada bulunan tablo/görünüm sayısı.");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartedAt");
+
+                    b.HasIndex("ConnectionId", "StartedAt");
+
+                    b.ToTable("SchemaScans", t =>
+                        {
+                            t.HasComment("Bir bağlantı için çalıştırılan şema katalog taramasının sonucu (ne zaman, ne kadar sürdü, başarılı mı). Katalog verisinin kendisi DbTables/DbColumns/DbIndexes/DbConstraints tablolarında güncel durum olarak tutulur.");
+                        });
+                });
+
             modelBuilder.Entity("CdcMonitoring.Domain.Entities.SystemSettings", b =>
                 {
                     b.Property<Guid>("Id")
@@ -566,6 +974,36 @@ namespace CdcMonitoring.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasComment("ReconciliationResult kayıtlarının saklanma süresi (gün).");
 
+                    b.Property<bool>("SchemaCatalogEnabled")
+                        .HasColumnType("boolean")
+                        .HasComment("false ise periyodik şema katalog taraması hiç çalışmaz; katalog ekranından elle tarama yapılabilir.");
+
+                    b.Property<string>("SchemaCatalogExcludedSchemasCsv")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasComment("Katalog taramasının dışladığı şemaların virgülle ayrılmış listesi (ör. pg_catalog,information_schema,pg_toast).");
+
+                    b.Property<int>("SchemaCatalogIntervalSeconds")
+                        .HasColumnType("integer")
+                        .HasComment("Şema katalog taramaları arasındaki süre (sn).");
+
+                    b.Property<int>("SchemaCatalogMaxDegreeOfParallelism")
+                        .HasColumnType("integer")
+                        .HasComment("Katalog taramasında eşzamanlı çalışacak bağlantı sayısı.");
+
+                    b.Property<int>("SchemaCatalogTimeoutSeconds")
+                        .HasColumnType("integer")
+                        .HasComment("Bir bağlantının katalog taraması için zaman aşımı süresi (sn).");
+
+                    b.Property<int>("SchemaChangeRetentionDays")
+                        .HasColumnType("integer")
+                        .HasComment("SchemaChangeEvent kayıtlarının saklanma süresi (gün).");
+
+                    b.Property<int>("SchemaScanRetentionDays")
+                        .HasColumnType("integer")
+                        .HasComment("SchemaScan (tarama geçmişi) kayıtlarının saklanma süresi (gün).");
+
                     b.Property<int>("SlotInactiveMinutes")
                         .HasColumnType("integer")
                         .HasComment("Bir slot'un bu süre boyunca inaktif kalması SlotInactive alarmı üretir (dk).");
@@ -627,6 +1065,13 @@ namespace CdcMonitoring.Infrastructure.Persistence.Migrations
                             RecipientsCsv = "",
                             ReconciliationIntervalSeconds = 604800,
                             ReconciliationRetentionDays = 90,
+                            SchemaCatalogEnabled = true,
+                            SchemaCatalogExcludedSchemasCsv = "pg_catalog,information_schema,pg_toast",
+                            SchemaCatalogIntervalSeconds = 21600,
+                            SchemaCatalogMaxDegreeOfParallelism = 5,
+                            SchemaCatalogTimeoutSeconds = 30,
+                            SchemaChangeRetentionDays = 180,
+                            SchemaScanRetentionDays = 30,
                             SlotInactiveMinutes = 5,
                             SmtpHost = "",
                             SmtpPort = 587,
@@ -695,6 +1140,50 @@ namespace CdcMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Connection");
                 });
 
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.DbColumn", b =>
+                {
+                    b.HasOne("CdcMonitoring.Domain.Entities.DbTable", "Table")
+                        .WithMany("Columns")
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Table");
+                });
+
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.DbConstraint", b =>
+                {
+                    b.HasOne("CdcMonitoring.Domain.Entities.DbTable", "Table")
+                        .WithMany("Constraints")
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Table");
+                });
+
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.DbIndex", b =>
+                {
+                    b.HasOne("CdcMonitoring.Domain.Entities.DbTable", "Table")
+                        .WithMany("Indexes")
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Table");
+                });
+
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.DbTable", b =>
+                {
+                    b.HasOne("CdcMonitoring.Domain.Entities.PgConnection", "Connection")
+                        .WithMany()
+                        .HasForeignKey("ConnectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Connection");
+                });
+
             modelBuilder.Entity("CdcMonitoring.Domain.Entities.ReconciliationResult", b =>
                 {
                     b.HasOne("CdcMonitoring.Domain.Entities.CdcRelationship", "Relationship")
@@ -706,11 +1195,42 @@ namespace CdcMonitoring.Infrastructure.Persistence.Migrations
                     b.Navigation("Relationship");
                 });
 
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.SchemaChangeEvent", b =>
+                {
+                    b.HasOne("CdcMonitoring.Domain.Entities.PgConnection", "Connection")
+                        .WithMany()
+                        .HasForeignKey("ConnectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Connection");
+                });
+
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.SchemaScan", b =>
+                {
+                    b.HasOne("CdcMonitoring.Domain.Entities.PgConnection", "Connection")
+                        .WithMany()
+                        .HasForeignKey("ConnectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Connection");
+                });
+
             modelBuilder.Entity("CdcMonitoring.Domain.Entities.CdcRelationship", b =>
                 {
                     b.Navigation("HealthHistory");
 
                     b.Navigation("ReconciliationResults");
+                });
+
+            modelBuilder.Entity("CdcMonitoring.Domain.Entities.DbTable", b =>
+                {
+                    b.Navigation("Columns");
+
+                    b.Navigation("Constraints");
+
+                    b.Navigation("Indexes");
                 });
 
             modelBuilder.Entity("CdcMonitoring.Domain.Entities.PgConnection", b =>

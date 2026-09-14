@@ -34,6 +34,13 @@ public class SystemSettingsServiceTests
         HealthyWalStatuses: ["reserved"],
         ReconciliationIntervalSeconds: 14 * 86400,
         ReconciliationRetentionDays: 120,
+        SchemaCatalogEnabled: false,
+        SchemaCatalogIntervalSeconds: 3 * 3600,
+        SchemaCatalogMaxDegreeOfParallelism: 3,
+        SchemaCatalogTimeoutSeconds: 45,
+        SchemaCatalogExcludedSchemas: ["pg_catalog", "information_schema", "pg_toast", "audit"],
+        SchemaChangeRetentionDays: 200,
+        SchemaScanRetentionDays: 45,
         EmailEnabled: true,
         SmtpHost: "smtp.example.com",
         SmtpPort: 25,
@@ -69,6 +76,12 @@ public class SystemSettingsServiceTests
         Assert.Equal(14 * 86400, updated.ReconciliationIntervalSeconds);
         Assert.Equal(14, updated.HealthCheckRetentionDays);
         Assert.Equal(120, updated.ReconciliationRetentionDays);
+        Assert.False(updated.SchemaCatalogEnabled);
+        Assert.Equal(3 * 3600, updated.SchemaCatalogIntervalSeconds);
+        Assert.Equal(45, updated.SchemaCatalogTimeoutSeconds);
+        Assert.Equal(["pg_catalog", "information_schema", "pg_toast", "audit"], updated.SchemaCatalogExcludedSchemas);
+        Assert.Equal(200, updated.SchemaChangeRetentionDays);
+        Assert.Equal(45, updated.SchemaScanRetentionDays);
         Assert.True(updated.EmailEnabled);
         Assert.Equal(["a@example.com", "b@example.com"], updated.Recipients);
         Assert.Equal(["reserved"], updated.HealthyWalStatuses);

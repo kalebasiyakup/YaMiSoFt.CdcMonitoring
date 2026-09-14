@@ -1,6 +1,8 @@
 using CdcMonitoring.Application.Abstractions;
 using CdcMonitoring.Application.CdcDiscovery;
+using CdcMonitoring.Application.SchemaCatalog;
 using CdcMonitoring.Domain.Entities;
+using CdcMonitoring.Domain.Enums;
 using Npgsql;
 
 namespace CdcMonitoring.Infrastructure.Postgres;
@@ -53,6 +55,116 @@ public class NpgsqlPostgresInspector : IPostgresInspector
         FROM information_schema.columns
         WHERE table_schema = @schema AND table_name = @table
         ORDER BY ordinal_position;
+        """;
+
+    // --- Şema kataloğu (FR-15) sorguları ---------------------------------------------
+    // Hepsi tek seferde TÜM şemaları tarar; nesne başına sorgu açılmaz. Sistem şemaları
+    // hem @excluded listesiyle hem de pg_ ön eki ile elenir (pg_temp_* / pg_toast_*
+    // şemaları kullanıcı ayarına bırakılmayacak kadar gürültülüdür).
+
+    internal const string CatalogTablesQuery = """
+        SELECT
+            n.nspname,
+            c.relname,
+            c.relkind::text,
+            c.reltuples::bigint AS estimated_rows,
+            pg_total_relation_size(c.oid) AS total_bytes,
+            obj_description(c.oid, 'pg_class') AS table_comment
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relkind = ANY(ARRAY['r', 'p', 'v', 'm', 'f'])
+          AND n.nspname <> ALL(@excluded)
+          AND n.nspname NOT LIKE 'pg\_%'
+        ORDER BY n.nspname, c.relname;
+        """;
+
+    // Kolonlar information_schema.columns yerine doğrudan pg_attribute'tan okunur:
+    // information_schema.columns materyalize görünümlerin kolonlarını HİÇ göstermez (katalogda
+    // matview'lar kolonsuz kalırdı) ve büyük kataloglarda belirgin biçimde yavaştır. Uzunluk/
+    // hassasiyet için information_schema.columns'ın kendi kullandığı yardımcı fonksiyonlar
+    // çağrılır; tip adı format_type ile (uzunluk eki olmadan) alınır, uzunluk ayrı kolonda durur.
+    internal const string CatalogColumnsQuery = """
+        SELECT
+            n.nspname,
+            c.relname,
+            a.attname,
+            a.attnum::int,
+            format_type(a.atttypid, NULL) AS data_type,
+            NOT a.attnotnull AS is_nullable,
+            pg_get_expr(ad.adbin, ad.adrelid) AS column_default,
+            information_schema._pg_char_max_length(a.atttypid, a.atttypmod)::int AS max_length,
+            information_schema._pg_numeric_precision(a.atttypid, a.atttypmod)::int AS numeric_precision,
+            information_schema._pg_numeric_scale(a.atttypid, a.atttypmod)::int AS numeric_scale,
+            col_description(a.attrelid, a.attnum) AS column_comment
+        FROM pg_catalog.pg_attribute a
+        JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        LEFT JOIN pg_catalog.pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum
+        WHERE a.attnum > 0
+          AND NOT a.attisdropped
+          AND c.relkind = ANY(ARRAY['r', 'p', 'v', 'm', 'f'])
+          AND n.nspname <> ALL(@excluded)
+          AND n.nspname NOT LIKE 'pg\_%'
+        ORDER BY n.nspname, c.relname, a.attnum;
+        """;
+
+    // indkey'de 0 olan girdiler ifade (expression) indeksleridir ve pg_attribute'ta karşılığı
+    // yoktur; bu durumda kolon listesi boş kalır, indeksin tam tanımı Definition alanında durur.
+    internal const string CatalogIndexesQuery = """
+        SELECT
+            n.nspname,
+            t.relname,
+            i.relname AS index_name,
+            ix.indisunique,
+            ix.indisprimary,
+            COALESCE((
+                SELECT string_agg(att.attname, ',' ORDER BY k.ord)
+                FROM unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord)
+                JOIN pg_catalog.pg_attribute att ON att.attrelid = t.oid AND att.attnum = k.attnum
+            ), '') AS index_columns,
+            pg_get_indexdef(i.oid) AS index_definition,
+            pg_relation_size(i.oid) AS index_bytes
+        FROM pg_catalog.pg_index ix
+        JOIN pg_catalog.pg_class i ON i.oid = ix.indexrelid
+        JOIN pg_catalog.pg_class t ON t.oid = ix.indrelid
+        JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace
+        WHERE n.nspname <> ALL(@excluded)
+          AND n.nspname NOT LIKE 'pg\_%'
+        ORDER BY n.nspname, t.relname, i.relname;
+        """;
+
+    internal const string CatalogConstraintsQuery = """
+        SELECT
+            n.nspname,
+            t.relname,
+            con.conname,
+            con.contype::text,
+            COALESCE((
+                SELECT string_agg(att.attname, ',' ORDER BY k.ord)
+                FROM unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord)
+                JOIN pg_catalog.pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = k.attnum
+            ), '') AS constraint_columns,
+            fn.nspname AS referenced_schema,
+            ft.relname AS referenced_table,
+            (
+                SELECT string_agg(att.attname, ',' ORDER BY k.ord)
+                FROM unnest(con.confkey) WITH ORDINALITY AS k(attnum, ord)
+                JOIN pg_catalog.pg_attribute att ON att.attrelid = con.confrelid AND att.attnum = k.attnum
+            ) AS referenced_columns,
+            pg_get_constraintdef(con.oid) AS constraint_definition
+        FROM pg_catalog.pg_constraint con
+        JOIN pg_catalog.pg_class t ON t.oid = con.conrelid
+        JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace
+        LEFT JOIN pg_catalog.pg_class ft ON ft.oid = con.confrelid
+        LEFT JOIN pg_catalog.pg_namespace fn ON fn.oid = ft.relnamespace
+        WHERE n.nspname <> ALL(@excluded)
+          AND n.nspname NOT LIKE 'pg\_%'
+        ORDER BY n.nspname, t.relname, con.conname;
+        """;
+
+    internal const string CatalogPublishedTablesQuery = """
+        SELECT DISTINCT schemaname, tablename
+        FROM pg_catalog.pg_publication_tables;
         """;
 
     /// <summary>
@@ -200,6 +312,147 @@ public class NpgsqlPostgresInspector : IPostgresInspector
         var checksum = reader.GetString(1);
         return new TableChecksum(rowCount, checksum);
     }
+
+    public async Task<SchemaCatalogSnapshot> GetSchemaCatalogAsync(PgConnection connection, string plaintextPassword, IReadOnlyList<string> excludedSchemas, CancellationToken ct = default)
+    {
+        // Tüm katalog sorguları TEK bağlantı üzerinden sırayla çalışır: binlerce tablolu bir
+        // veritabanında nesne başına bağlantı açmak hem izlenen sunucuyu hem taramayı boğar.
+        var excluded = excludedSchemas.Count > 0 ? excludedSchemas.ToArray() : [string.Empty];
+        await using var conn = await OpenAsync(connection, plaintextPassword, ct);
+
+        var tables = new Dictionary<(string Schema, string Table), CatalogTableInfo>();
+
+        await using (var cmd = new NpgsqlCommand(CatalogTablesQuery, conn))
+        {
+            cmd.Parameters.AddWithValue("excluded", excluded);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                var schema = reader.GetString(0);
+                var table = reader.GetString(1);
+                // PG14+ hiç ANALYZE edilmemiş tablolar için reltuples = -1 döner; bunu
+                // "0 satır" diye göstermek yanıltıcı olur, bilinmiyor (null) olarak saklanır.
+                var estimatedRows = reader.IsDBNull(3) ? (long?)null : reader.GetInt64(3);
+                tables[(schema, table)] = new CatalogTableInfo
+                {
+                    SchemaName = schema,
+                    TableName = table,
+                    Kind = MapObjectKind(reader.GetString(2)),
+                    EstimatedRowCount = estimatedRows < 0 ? null : estimatedRows,
+                    TotalSizeBytes = reader.IsDBNull(4) ? null : reader.GetInt64(4),
+                    Comment = reader.IsDBNull(5) ? null : reader.GetString(5)
+                };
+            }
+        }
+
+        await using (var cmd = new NpgsqlCommand(CatalogColumnsQuery, conn))
+        {
+            cmd.Parameters.AddWithValue("excluded", excluded);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                if (!tables.TryGetValue((reader.GetString(0), reader.GetString(1)), out var table))
+                    continue;
+
+                table.Columns.Add(new CatalogColumnInfo(
+                    reader.GetString(2),
+                    reader.GetInt32(3),
+                    reader.GetString(4),
+                    reader.GetBoolean(5),
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                    reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                    reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                    reader.IsDBNull(10) ? null : reader.GetString(10)));
+            }
+        }
+
+        await using (var cmd = new NpgsqlCommand(CatalogIndexesQuery, conn))
+        {
+            cmd.Parameters.AddWithValue("excluded", excluded);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                if (!tables.TryGetValue((reader.GetString(0), reader.GetString(1)), out var table))
+                    continue;
+
+                table.Indexes.Add(new CatalogIndexInfo(
+                    reader.GetString(2),
+                    reader.GetBoolean(3),
+                    reader.GetBoolean(4),
+                    reader.GetString(5),
+                    reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetInt64(7)));
+            }
+        }
+
+        await using (var cmd = new NpgsqlCommand(CatalogConstraintsQuery, conn))
+        {
+            cmd.Parameters.AddWithValue("excluded", excluded);
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                if (!tables.TryGetValue((reader.GetString(0), reader.GetString(1)), out var table))
+                    continue;
+
+                table.Constraints.Add(new CatalogConstraintInfo(
+                    reader.GetString(2),
+                    MapConstraintKind(reader.GetString(3)),
+                    reader.GetString(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetString(7),
+                    reader.GetString(8)));
+            }
+        }
+
+        await using (var cmd = new NpgsqlCommand(CatalogPublishedTablesQuery, conn))
+        {
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                if (tables.TryGetValue((reader.GetString(0), reader.GetString(1)), out var table))
+                    table.IsPublished = true;
+            }
+        }
+
+        // Kolonun PK'ya dahil olup olmadığı ayrı bir sorgu yerine PK kısıtının kolon
+        // listesinden türetilir.
+        foreach (var table in tables.Values)
+        {
+            var primaryKey = table.Constraints.FirstOrDefault(c => c.Kind == DbConstraintKind.PrimaryKey);
+            if (primaryKey is null)
+                continue;
+
+            var pkColumns = primaryKey.ColumnsCsv
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToHashSet();
+
+            foreach (var column in table.Columns.Where(c => pkColumns.Contains(c.Name)))
+                column.IsPrimaryKey = true;
+        }
+
+        return new SchemaCatalogSnapshot([.. tables.Values]);
+    }
+
+    private static DbObjectKind MapObjectKind(string relkind) => relkind switch
+    {
+        "p" => DbObjectKind.PartitionedTable,
+        "v" => DbObjectKind.View,
+        "m" => DbObjectKind.MaterializedView,
+        "f" => DbObjectKind.ForeignTable,
+        _ => DbObjectKind.Table
+    };
+
+    private static DbConstraintKind MapConstraintKind(string contype) => contype switch
+    {
+        "p" => DbConstraintKind.PrimaryKey,
+        "f" => DbConstraintKind.ForeignKey,
+        "u" => DbConstraintKind.Unique,
+        "c" => DbConstraintKind.Check,
+        "x" => DbConstraintKind.Exclusion,
+        _ => DbConstraintKind.Other
+    };
 
     private static string QuoteIdentifier(string identifier) => $"\"{identifier.Replace("\"", "\"\"")}\"";
 

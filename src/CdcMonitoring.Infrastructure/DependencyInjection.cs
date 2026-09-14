@@ -4,6 +4,7 @@ using CdcMonitoring.Application.CdcDiscovery;
 using CdcMonitoring.Application.HealthChecks;
 using CdcMonitoring.Application.Reconciliation;
 using CdcMonitoring.Application.Retention;
+using CdcMonitoring.Application.SchemaCatalog;
 using CdcMonitoring.Application.SchemaComparison;
 using CdcMonitoring.Application.Settings;
 using CdcMonitoring.Infrastructure.Email;
@@ -73,6 +74,8 @@ public static class DependencyInjection
         services.AddScoped<IReconciliationResultRepository, ReconciliationResultRepository>();
         services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>();
         services.AddScoped<IJobScheduleRepository, JobScheduleRepository>();
+        services.AddScoped<ISchemaCatalogRepository, SchemaCatalogRepository>();
+        services.AddScoped<ISchemaChangeEventRepository, SchemaChangeEventRepository>();
         services.AddScoped<IConnectionPasswordProtector, DataProtectionPasswordProtector>();
         services.AddScoped<ISmtpPasswordProtector, DataProtectionSmtpPasswordProtector>();
         services.AddScoped<ICurrentUserAccessor, HttpContextCurrentUserAccessor>();
@@ -92,6 +95,8 @@ public static class DependencyInjection
         services.AddScoped<ReconciliationQueryService>();
         services.AddScoped<RetentionCleanupService>();
         services.AddScoped<SchemaComparisonService>();
+        services.AddScoped<SchemaCatalogService>();
+        services.AddScoped<SchemaCatalogQueryService>();
         services.AddScoped<SystemSettingsService>();
 
         var useClusteredJobStore = configuration.GetValue<bool>("Quartz:UseClusteredPostgresStore");

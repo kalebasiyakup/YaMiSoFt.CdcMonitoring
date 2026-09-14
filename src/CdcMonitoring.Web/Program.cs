@@ -3,6 +3,7 @@ using CdcMonitoring.Application.Connections;
 using CdcMonitoring.Domain.Enums;
 using CdcMonitoring.Infrastructure;
 using CdcMonitoring.Infrastructure.Persistence;
+using CdcMonitoring.Application.SchemaCatalog;
 using CdcMonitoring.Web.Components;
 using CdcMonitoring.Web.Services;
 using Microsoft.AspNetCore.Localization;
@@ -95,6 +96,34 @@ try
         }
 
         return Results.LocalRedirect(string.IsNullOrEmpty(redirectUri) ? "/" : redirectUri);
+    });
+
+    // Şema Raporu ekranındaki "Excel'e Aktar" bağlantısının hedefi: ekrandaki filtrelerin
+    // AYNISIYLA çalışır ama sayfalama uygulamaz — kullanıcı o an gördüğü sayfayı değil,
+    // filtreye uyan tüm satırları indirmek ister. Satır sayısı MaxRows ile sınırlanır.
+    app.MapGet("/schema-catalog/report.xlsx", async (
+        SchemaCatalogQueryService catalogQuery,
+        Guid? connectionId,
+        string? schema,
+        string? q,
+        bool? published,
+        bool? undocumented,
+        bool? dropped,
+        CancellationToken ct) =>
+    {
+        var filter = new SchemaColumnReportFilter(
+            connectionId,
+            string.IsNullOrWhiteSpace(schema) ? null : schema,
+            string.IsNullOrWhiteSpace(q) ? null : q,
+            dropped ?? false,
+            published ?? false,
+            undocumented ?? false);
+
+        var result = await catalogQuery.GetColumnReportAsync(filter, 1, SchemaCatalogExcelExporter.MaxRows, ct);
+        var bytes = SchemaCatalogExcelExporter.Build(result.Items, DateTimeOffset.UtcNow);
+        var fileName = $"sema-raporu-{DateTimeOffset.UtcNow:yyyyMMdd-HHmm}.xlsx";
+
+        return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     });
 
     app.MapStaticAssets();

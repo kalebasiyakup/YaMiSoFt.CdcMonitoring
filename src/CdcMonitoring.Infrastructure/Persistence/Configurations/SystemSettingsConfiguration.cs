@@ -34,6 +34,15 @@ public class SystemSettingsConfiguration : IEntityTypeConfiguration<SystemSettin
             .HasComment("Sağlıklı sayılan pg_replication_slots.wal_status değerlerinin virgülle ayrılmış listesi (ör. reserved,extended).");
         builder.Property(s => s.ReconciliationIntervalSeconds).HasComment("Veri Tutarlılık Kontrolü taramaları arasındaki süre (sn).");
         builder.Property(s => s.ReconciliationRetentionDays).HasComment("ReconciliationResult kayıtlarının saklanma süresi (gün).");
+        builder.Property(s => s.SchemaCatalogEnabled)
+            .HasComment("false ise periyodik şema katalog taraması hiç çalışmaz; katalog ekranından elle tarama yapılabilir.");
+        builder.Property(s => s.SchemaCatalogIntervalSeconds).HasComment("Şema katalog taramaları arasındaki süre (sn).");
+        builder.Property(s => s.SchemaCatalogMaxDegreeOfParallelism).HasComment("Katalog taramasında eşzamanlı çalışacak bağlantı sayısı.");
+        builder.Property(s => s.SchemaCatalogTimeoutSeconds).HasComment("Bir bağlantının katalog taraması için zaman aşımı süresi (sn).");
+        builder.Property(s => s.SchemaCatalogExcludedSchemasCsv).HasMaxLength(500).IsRequired()
+            .HasComment("Katalog taramasının dışladığı şemaların virgülle ayrılmış listesi (ör. pg_catalog,information_schema,pg_toast).");
+        builder.Property(s => s.SchemaChangeRetentionDays).HasComment("SchemaChangeEvent kayıtlarının saklanma süresi (gün).");
+        builder.Property(s => s.SchemaScanRetentionDays).HasComment("SchemaScan (tarama geçmişi) kayıtlarının saklanma süresi (gün).");
         builder.Property(s => s.EmailEnabled).HasComment("E-posta bildirimlerinin açık olup olmadığı.");
         builder.Property(s => s.SmtpHost).HasMaxLength(255)
             .HasComment("SMTP sunucu adresi.");
@@ -71,6 +80,13 @@ public class SystemSettingsConfiguration : IEntityTypeConfiguration<SystemSettin
             HealthyWalStatusesCsv = "reserved,extended",
             ReconciliationIntervalSeconds = 7 * 86400,
             ReconciliationRetentionDays = 90,
+            SchemaCatalogEnabled = true,
+            SchemaCatalogIntervalSeconds = 6 * 3600,
+            SchemaCatalogMaxDegreeOfParallelism = 5,
+            SchemaCatalogTimeoutSeconds = 30,
+            SchemaCatalogExcludedSchemasCsv = "pg_catalog,information_schema,pg_toast",
+            SchemaChangeRetentionDays = 180,
+            SchemaScanRetentionDays = 30,
             EmailEnabled = false,
             SmtpHost = string.Empty,
             SmtpPort = 587,

@@ -38,6 +38,20 @@ public class SettingsFormModel
     [Range(1, 3650, ErrorMessage = "Saklama süresi 1-3650 gün arasında olmalıdır.")]
     public int ReconciliationRetentionDays { get; set; } = 90;
 
+    public bool SchemaCatalogEnabled { get; set; } = true;
+    [Range(1, 100000, ErrorMessage = "Sıklık 1 veya üzeri olmalıdır.")]
+    public int SchemaCatalogIntervalValue { get; set; } = 6;
+    public ReconciliationIntervalUnit SchemaCatalogIntervalUnit { get; set; } = ReconciliationIntervalUnit.Hours;
+    [Range(1, 100, ErrorMessage = "Paralellik 1-100 arasında olmalıdır.")]
+    public int SchemaCatalogMaxDegreeOfParallelism { get; set; } = 5;
+    [Range(1, 600, ErrorMessage = "Zaman aşımı 1-600 sn arasında olmalıdır.")]
+    public int SchemaCatalogTimeoutSeconds { get; set; } = 30;
+    public string SchemaCatalogExcludedSchemas { get; set; } = string.Empty;
+    [Range(1, 3650, ErrorMessage = "Saklama süresi 1-3650 gün arasında olmalıdır.")]
+    public int SchemaChangeRetentionDays { get; set; } = 180;
+    [Range(1, 3650, ErrorMessage = "Saklama süresi 1-3650 gün arasında olmalıdır.")]
+    public int SchemaScanRetentionDays { get; set; } = 30;
+
     public bool EmailEnabled { get; set; }
     public string SmtpHost { get; set; } = string.Empty;
     [Range(1, 65535, ErrorMessage = "Port 1-65535 aralığında olmalıdır.")]

@@ -1,0 +1,311 @@
+@page "/schema-catalog/report"
+@rendermode InteractiveServer
+@using CdcMonitoring.Application.SchemaCatalog
+@using CdcMonitoring.Domain.Enums
+@inject SchemaCatalogQueryService CatalogQuery
+
+<PageTitle>Şema Raporu</PageTitle>
+
+<div class="d-flex justify-content-between align-items-start mb-2">
+    <h1>Şema Raporu</h1>
+    <div class="d-flex gap-2">
+        <a class="btn btn-success" href="@ExcelUrl()" target="_top">Excel'e Aktar</a>
+        <a class="btn btn-outline-secondary" href="schema-catalog">&laquo; Şema Kataloğu</a>
+        <a class="btn btn-outline-secondary" href="schema-catalog/changes">Şema Değişiklikleri</a>
+    </div>
+</div>
+
+<p><em>
+    Katalogun tamamı tek düz liste halinde: her satır bir kolondur, tablo ve kolon açıklamaları
+    (PostgreSQL'deki <code>COMMENT</code> metinleri) yanında görünür. Arama; tablo adı, kolon adı
+    ve açıklama metinlerinde birlikte çalışır. "Excel'e Aktar", ekrandaki filtrelerin aynısıyla
+    ancak sayfalama olmadan — yani filtreye uyan <strong>tüm</strong> satırlarla — bir .xlsx
+    dosyası indirir.
+</em></p>
+
+<div class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+        <label class="form-label mb-1">Veritabanı</label>
+        <select class="form-select" @onchange="OnConnectionChangedAsync">
+            <option value="">Tümü</option>
+            @foreach (var c in _connections)
+            {
+                <option value="@c.ConnectionId">@c.ConnectionName</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">Şema</label>
+        <select class="form-select" @onchange="OnSchemaChangedAsync">
+            <option value="">Tümü</option>
+            @foreach (var schema in _schemaNames)
+            {
+                <option value="@schema" selected="@(schema == _schemaName)">@schema</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label mb-1">Ara <InfoTooltip Text="Tablo adı, kolon adı ve açıklama metinlerinde birlikte arar." /></label>
+        <input class="form-control" placeholder="tablo, kolon veya açıklama" value="@_searchText" @onchange="OnSearchChangedAsync" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label mb-1">Sayfa boyutu</label>
+        <select class="form-select" @onchange="OnPageSizeChangedAsync">
+            @foreach (var size in PageSizeOptions)
+            {
+                <option value="@size" selected="@(size == _pageSize)">@size</option>
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="reportOnlyPublished" checked="@_onlyPublished" @onchange="OnOnlyPublishedChangedAsync" />
+            <label class="form-check-label" for="reportOnlyPublished">Yalnızca publication'a dahil</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="reportOnlyUndocumented" checked="@_onlyUndocumented" @onchange="OnOnlyUndocumentedChangedAsync" />
+            <label class="form-check-label" for="reportOnlyUndocumented">
+                Yalnızca açıklaması olmayan kolonlar
+                <InfoTooltip Text="Dokümantasyon boşluklarını çıkarmak için: PostgreSQL'de COMMENT girilmemiş kolonları listeler." />
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="reportIncludeDropped" checked="@_includeDropped" @onchange="OnIncludeDroppedChangedAsync" />
+            <label class="form-check-label" for="reportIncludeDropped">Silinenleri de göster</label>
+        </div>
+    </div>
+</div>
+
+@if (_rows is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else if (_rows.Count == 0)
+{
+    <p><em>Bu filtrelerle eşleşen kolon yok. Katalog hiç taranmadıysa Şema Kataloğu ekranından "Şimdi Tara" ile doldurabilirsiniz.</em></p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>Veritabanı</th>
+                    <th>Tablo</th>
+                    <th>Tablo Açıklaması</th>
+                    <th class="text-end">#</th>
+                    <th>Kolon</th>
+                    <th>Tip</th>
+                    <th>Null</th>
+                    <th>PK</th>
+                    <th>Varsayılan</th>
+                    <th>Kolon Açıklaması</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    // Aynı tabloya ait satırlar tek blok gibi okunsun diye tablo DEĞİŞTİKÇE
+                    // (satır başına değil) zebra rengi döner; blok başına da ince bir ayraç
+                    // çizgisi konur. Düz satır bazlı zebra, tablo sınırlarını gizliyordu.
+                    string? previousGroup = null;
+                    var groupIsAlternate = false;
+                }
+                @foreach (var r in _rows)
+                {
+                    var group = $"{r.ConnectionId}|{r.SchemaName}.{r.TableName}";
+                    var isFirstRowOfGroup = group != previousGroup;
+                    if (isFirstRowOfGroup)
+                    {
+                        groupIsAlternate = !groupIsAlternate;
+                        previousGroup = group;
+                    }
+
+                    var rowClasses = string.Join(' ', new[]
+                    {
+                        r.IsDropped ? "table-secondary" : null,
+                        groupIsAlternate ? "table-group-alt" : null,
+                        isFirstRowOfGroup ? "table-group-start" : null
+                    }.Where(c => c is not null));
+
+                    <tr class="@rowClasses">
+                        <td class="text-nowrap">@r.ConnectionName</td>
+                        <td class="text-nowrap @(isFirstRowOfGroup ? "fw-semibold" : "text-muted")">
+                            @($"{r.SchemaName}.{r.TableName}")
+                            @if (r.IsPublished)
+                            {
+                                <span class="badge bg-info text-dark ms-1">CDC</span>
+                            }
+                            @if (r.IsDropped)
+                            {
+                                <span class="badge bg-secondary ms-1">silinmiş</span>
+                            }
+                        </td>
+                        <td class="text-muted small">@(r.TableComment ?? "—")</td>
+                        <td class="text-end">@r.OrdinalPosition</td>
+                        <td>@r.ColumnName</td>
+                        <td><code>@FormatType(r)</code></td>
+                        <td>@(r.IsNullable ? "NULL" : "NOT NULL")</td>
+                        <td>@(r.IsPrimaryKey ? "✓" : "")</td>
+                        <td class="text-muted small">@(r.DefaultExpression ?? "—")</td>
+                        <td class="text-muted small">@(r.ColumnComment ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <span class="text-muted small">
+            @_totalCount.ToString("N0") kayıttan @FirstRowOnPage.ToString("N0")-@LastRowOnPage.ToString("N0") arası gösteriliyor
+        </span>
+        <Pagination Page="_page" TotalPages="_totalPages" TotalCount="_totalCount" OnPageChange="ChangePageAsync" />
+    </div>
+}
+
+@code {
+    private static readonly int[] PageSizeOptions = [25, 50, 100, 250, 500];
+
+    private int _pageSize = 50;
+
+    private List<SchemaColumnReportRow>? _rows;
+    private List<SchemaCatalogConnectionStats> _connections = [];
+    private List<string> _schemaNames = [];
+
+    private Guid? _connectionId;
+    private string? _schemaName;
+    private string? _searchText;
+    private bool _includeDropped;
+    private bool _onlyPublished;
+    private bool _onlyUndocumented;
+
+    private int _page = 1;
+    private int _totalPages = 1;
+    private int _totalCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _connections = await CatalogQuery.GetConnectionStatsAsync();
+        _schemaNames = await CatalogQuery.GetSchemaNamesAsync(null);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var filter = new SchemaColumnReportFilter(
+            _connectionId,
+            string.IsNullOrWhiteSpace(_schemaName) ? null : _schemaName,
+            string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
+            _includeDropped,
+            _onlyPublished,
+            _onlyUndocumented);
+
+        var result = await CatalogQuery.GetColumnReportAsync(filter, _page, _pageSize);
+        _rows = result.Items;
+        _totalPages = result.TotalPages;
+        _totalCount = result.TotalCount;
+    }
+
+    private async Task OnConnectionChangedAsync(ChangeEventArgs e)
+    {
+        _connectionId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+
+        // Şema listesi seçili veritabanına göre daralır; seçili şema artık geçerli değilse düşer.
+        _schemaNames = await CatalogQuery.GetSchemaNamesAsync(_connectionId);
+        if (_schemaName is not null && !_schemaNames.Contains(_schemaName))
+            _schemaName = null;
+
+        await ResetAndReloadAsync();
+    }
+
+    private async Task OnSchemaChangedAsync(ChangeEventArgs e)
+    {
+        _schemaName = e.Value?.ToString();
+        await ResetAndReloadAsync();
+    }
+
+    private async Task OnSearchChangedAsync(ChangeEventArgs e)
+    {
+        _searchText = e.Value?.ToString();
+        await ResetAndReloadAsync();
+    }
+
+    private async Task OnOnlyPublishedChangedAsync(ChangeEventArgs e)
+    {
+        _onlyPublished = e.Value is true;
+        await ResetAndReloadAsync();
+    }
+
+    private async Task OnOnlyUndocumentedChangedAsync(ChangeEventArgs e)
+    {
+        _onlyUndocumented = e.Value is true;
+        await ResetAndReloadAsync();
+    }
+
+    private async Task OnIncludeDroppedChangedAsync(ChangeEventArgs e)
+    {
+        _includeDropped = e.Value is true;
+        await ResetAndReloadAsync();
+    }
+
+    private async Task OnPageSizeChangedAsync(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size) && PageSizeOptions.Contains(size))
+            _pageSize = size;
+
+        await ResetAndReloadAsync();
+    }
+
+    // Gösterilen aralık: son sayfa genellikle eksik dolduğu için üst sınır satır sayısına göre kırpılır.
+    private int FirstRowOnPage => _totalCount == 0 ? 0 : ((_page - 1) * _pageSize) + 1;
+
+    private int LastRowOnPage => Math.Min(_page * _pageSize, _totalCount);
+
+    private async Task ResetAndReloadAsync()
+    {
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ChangePageAsync(int page)
+    {
+        _page = page;
+        await LoadAsync();
+    }
+
+    private string ExcelUrl()
+    {
+        var query = new List<string>();
+
+        if (_connectionId is { } id)
+            query.Add($"connectionId={id}");
+        if (!string.IsNullOrWhiteSpace(_schemaName))
+            query.Add($"schema={Uri.EscapeDataString(_schemaName)}");
+        if (!string.IsNullOrWhiteSpace(_searchText))
+            query.Add($"q={Uri.EscapeDataString(_searchText)}");
+        if (_onlyPublished)
+            query.Add("published=true");
+        if (_onlyUndocumented)
+            query.Add("undocumented=true");
+        if (_includeDropped)
+            query.Add("dropped=true");
+
+        return query.Count == 0
+            ? "/schema-catalog/report.xlsx"
+            : $"/schema-catalog/report.xlsx?{string.Join("&", query)}";
+    }
+
+    private static string FormatType(SchemaColumnReportRow r)
+    {
+        if (r.MaxLength is { } length)
+            return $"{r.DataType}({length})";
+
+        // information_schema sayısal tiplerin tümüne precision/scale verir (integer için
+        // 32,0 gibi); yalnızca numeric/decimal'de anlamlıdır.
+        if (r.DataType is "numeric" or "decimal" && r.NumericPrecision is { } precision)
+            return r.NumericScale is { } scale && scale > 0
+                ? $"{r.DataType}({precision},{scale})"
+                : $"{r.DataType}({precision})";
+
+        return r.DataType;
+    }
+}

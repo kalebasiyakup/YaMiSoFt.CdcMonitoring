@@ -26,6 +26,11 @@ public class ReadOnlyGuardTests
     [InlineData(nameof(NpgsqlPostgresInspector.ReplicationStatsQuery))]
     [InlineData(nameof(NpgsqlPostgresInspector.PublicationTablesQuery))]
     [InlineData(nameof(NpgsqlPostgresInspector.TableColumnsQuery))]
+    [InlineData(nameof(NpgsqlPostgresInspector.CatalogTablesQuery))]
+    [InlineData(nameof(NpgsqlPostgresInspector.CatalogColumnsQuery))]
+    [InlineData(nameof(NpgsqlPostgresInspector.CatalogIndexesQuery))]
+    [InlineData(nameof(NpgsqlPostgresInspector.CatalogConstraintsQuery))]
+    [InlineData(nameof(NpgsqlPostgresInspector.CatalogPublishedTablesQuery))]
     public void NpgsqlPostgresInspector_queries_are_select_only(string constantName)
     {
         var field = typeof(NpgsqlPostgresInspector).GetField(constantName,
@@ -33,6 +38,24 @@ public class ReadOnlyGuardTests
         var query = (string)field.GetValue(null)!;
 
         AssertSelectOnly(query);
+    }
+
+    /// <summary>
+    /// Yukarıdaki [InlineData] listesi elle tutulduğu için, sınıfa sonradan eklenen bir
+    /// sorgu sabitinin listeye eklenmesi unutulabilir. Bu test "...Query" ile biten TÜM
+    /// sabitleri yansıma ile bulup kontrol eder — yeni sorgu sessizce kapsam dışı kalmaz.
+    /// </summary>
+    [Fact]
+    public void NpgsqlPostgresInspector_every_query_constant_is_select_only()
+    {
+        var queryFields = typeof(NpgsqlPostgresInspector)
+            .GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+            .Where(f => f.IsLiteral && f.FieldType == typeof(string) && f.Name.EndsWith("Query"))
+            .ToList();
+
+        Assert.NotEmpty(queryFields);
+        foreach (var field in queryFields)
+            AssertSelectOnly((string)field.GetValue(null)!);
     }
 
     [Fact]
@@ -45,14 +68,16 @@ public class ReadOnlyGuardTests
         AssertSelectOnly(query);
     }
 
+    // Kelime sınırlı arama: PostgreSQL katalog kolonlarının adları (ör. pg_attribute.attisdropped)
+    // DDL anahtar sözcüklerini alt dize olarak içerebilir; düz "contains" kontrolü bunları
+    // yanlışlıkla ihlal sayardı. Gerçek bir "DROP TABLE"/"UPDATE ..." ifadesi sınırlı eşleşmeye
+    // yine takılır.
+    private static readonly Regex WriteKeyword =
+        new(@"\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|GRANT|REVOKE)\b", RegexOptions.IgnoreCase);
+
     private static void AssertSelectOnly(string query)
     {
         Assert.Matches(SelectOnly, query);
-        Assert.DoesNotContain("INSERT", query, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("UPDATE", query, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("DELETE", query, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("DROP", query, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("CREATE", query, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("ALTER", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotMatch(WriteKeyword, query);
     }
 }

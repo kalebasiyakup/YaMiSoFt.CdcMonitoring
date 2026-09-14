@@ -125,6 +125,8 @@ Mevcut durumda hangi PostgreSQL örneklerinin var olduğu, bunlar arasında hang
 | FR-12 | Sistem, bağlantı defterinde yapılan her ekleme/düzenleme/silme işlemini kullanıcı ve zaman bilgisiyle denetim (audit) kaydına yazmalıdır. | Orta |
 | FR-13 | Sistem, ASP.NET Core Health Checks ile `/healthz` ve `/readyz` endpoint'lerini sağlamalıdır. | Orta |
 | FR-14 | Sistem, hiçbir koşulda izlediği PostgreSQL örneklerinde publication, subscription veya replication slot oluşturma, silme veya yeniden oluşturma (recreate) işlemi **gerçekleştirmemelidir**; bu, yazılım seviyesinde (kod içinde CDC nesnelerine yönelik DDL çalıştırma imkânı bulunmaması) garanti edilmelidir. | Yüksek |
+| FR-15 | Sistem, kayıtlı her bağlantının şema kataloğunu (kullanıcı şemalarındaki tablo/görünüm, kolon, indeks ve kısıt bilgisi) yapılandırılabilir bir aralıkta **yalnızca SELECT ile** toplamalı ve kendi metadata veritabanında saklamalıdır; kullanıcı bu kataloğu şema/tablo/kolon adına göre arayarak görüntüleyebilmeli, katalogun tamamını tablo/kolon açıklamalarıyla birlikte filtrelenebilir bir rapor olarak listeleyebilmeli ve bu raporu Excel (.xlsx) dosyası olarak dışa aktarabilmeli, bir bağlantıyı talep üzerine yeniden taratabilmeli ve periyodik taramayı tamamen kapatabilmelidir. | Orta |
+| FR-16 | Sistem, ardışık iki katalog taraması arasındaki farkları (tablo/kolon/indeks/kısıt eklenmesi-silinmesi, kolon tipi/NULL kabulü/varsayılan değeri değişimi) tespit edip zaman damgalı bir değişiklik günlüğünde saklamalı ve kullanıcıya listelemelidir. Bir bağlantının ilk taraması (tüm kataloğun "yeni" görüneceği durum) ve başarısız bir tarama değişiklik kaydı üretmemelidir. | Orta |
 
 ---
 

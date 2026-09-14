@@ -1,4 +1,5 @@
 using CdcMonitoring.Application.CdcDiscovery;
+using CdcMonitoring.Application.SchemaCatalog;
 using CdcMonitoring.Domain.Entities;
 
 namespace CdcMonitoring.Application.Abstractions;
@@ -35,4 +36,14 @@ public interface IPostgresInspector
     /// etkilenmemesini garanti eder.
     /// </summary>
     Task<TableChecksum> GetTableChecksumAsync(PgConnection connection, string plaintextPassword, string schemaName, string tableName, IReadOnlyList<string> columnNames, CancellationToken ct = default);
+
+    /// <summary>
+    /// Şema kataloğu (FR-15) için: bir veritabanındaki tüm tablo/görünüm, kolon, indeks ve
+    /// kısıt bilgisini TEK bağlantı üzerinden, nesne başına sorgu açmadan toplar.
+    /// GetTableColumnsAsync tablo başına ayrı bağlantı açtığı için binlerce tablolu bir
+    /// veritabanının katalog taramasında kullanılamaz.
+    /// excludedSchemas listesindeki şemalar (ve pg_ ile başlayan sistem şemaları) atlanır.
+    /// Salt-okuma, DDL/DML içermez (FR-14).
+    /// </summary>
+    Task<SchemaCatalogSnapshot> GetSchemaCatalogAsync(PgConnection connection, string plaintextPassword, IReadOnlyList<string> excludedSchemas, CancellationToken ct = default);
 }

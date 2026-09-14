@@ -23,6 +23,19 @@ public class SystemSettings
     public int ReconciliationIntervalSeconds { get; set; } = 7 * 86400;
     public int ReconciliationRetentionDays { get; set; } = 90;
 
+    /// <summary>
+    /// false ise periyodik şema katalog taraması hiç çalışmaz; katalog ekranındaki
+    /// "Şimdi Tara" ile elle tarama yapılmaya devam edilebilir.
+    /// </summary>
+    public bool SchemaCatalogEnabled { get; set; } = true;
+    public int SchemaCatalogIntervalSeconds { get; set; } = 6 * 3600;
+    public int SchemaCatalogMaxDegreeOfParallelism { get; set; } = 5;
+    public int SchemaCatalogTimeoutSeconds { get; set; } = 30;
+    /// <summary>Katalog taramasının dışladığı şemalar; sistem şemaları için varsayılan doludur.</summary>
+    public required string SchemaCatalogExcludedSchemasCsv { get; set; }
+    public int SchemaChangeRetentionDays { get; set; } = 180;
+    public int SchemaScanRetentionDays { get; set; } = 30;
+
     public bool EmailEnabled { get; set; }
     public string SmtpHost { get; set; } = string.Empty;
     public int SmtpPort { get; set; } = 587;

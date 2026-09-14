@@ -1,0 +1,142 @@
+@page "/schema-catalog"
+@rendermode InteractiveServer
+@inherits TimeZoneAwareComponentBase
+@using CdcMonitoring.Application.SchemaCatalog
+@inject SchemaCatalogQueryService CatalogQuery
+@inject SchemaCatalogService CatalogService
+@inject SystemSettingsService SettingsService
+
+<PageTitle>Şema Kataloğu</PageTitle>
+
+<div class="d-flex justify-content-between align-items-start mb-2">
+    <h1>Şema Kataloğu</h1>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="schema-catalog/report">Şema Raporu</a>
+        <a class="btn btn-outline-secondary" href="schema-catalog/changes">Şema Değişiklikleri</a>
+    </div>
+</div>
+
+<p><em>
+    Kayıtlı her bağlantının tablo, kolon, indeks ve kısıt bilgisi salt-okuma ile periyodik
+    olarak taranır ve burada saklanır. Tarama sıklığı Ayarlar &gt; Şema Kataloğu'ndan
+    yönetilir; aşağıdaki "Şimdi Tara" düğmesi bir bağlantıyı talep üzerine yeniler.
+</em></p>
+
+@if (_periodicScanEnabled == false)
+{
+    <div class="alert alert-warning">
+        Periyodik tarama <strong>kapalı</strong> (Ayarlar &gt; Şema Kataloğu). Katalog yalnızca
+        aşağıdaki "Şimdi Tara" düğmesiyle elle güncellenir.
+    </div>
+}
+
+@if (_errorMessage is not null)
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+@if (_stats is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else if (_stats.Count == 0)
+{
+    <p><em>Henüz kayıtlı bağlantı yok — önce Bağlantılar ekranından bir PostgreSQL bağlantısı tanımlayın.</em></p>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var s in _stats)
+        {
+            <div class="col-md-6 col-xl-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h5 class="card-title mb-1">@s.ConnectionName</h5>
+                            <span class="badge @(s.IsActive ? "bg-success" : "bg-secondary")">@(s.IsActive ? "Aktif" : "Pasif")</span>
+                        </div>
+                        <p class="card-subtitle text-muted mb-3">
+                            @s.Host:@s.Port / @s.DatabaseName &middot; @s.EnvironmentTag
+                        </p>
+
+                        <dl class="row mb-3 small">
+                            <dt class="col-6">Tablo / Görünüm</dt>
+                            <dd class="col-6">@s.TableCount.ToString("N0")</dd>
+                            <dt class="col-6">Kolon</dt>
+                            <dd class="col-6">@s.ColumnCount.ToString("N0")</dd>
+                            <dt class="col-6">Toplam Boyut</dt>
+                            <dd class="col-6">@ByteSizeFormatter.Format(s.TotalSizeBytes)</dd>
+                            <dt class="col-6">Son Tarama</dt>
+                            <dd class="col-6">
+                                @if (s.LastScanAt is null)
+                                {
+                                    <span class="text-muted">Hiç taranmadı</span>
+                                }
+                                else
+                                {
+                                    @FormatLocal(s.LastScanAt)
+                                    @if (s.LastScanSuccess == false)
+                                    {
+                                        <span class="badge bg-danger ms-1">Hata</span>
+                                    }
+                                }
+                            </dd>
+                        </dl>
+
+                        @if (s.LastScanSuccess == false && s.LastScanError is not null)
+                        {
+                            <div class="alert alert-warning py-1 px-2 small">@s.LastScanError</div>
+                        }
+
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-sm btn-primary" href="@($"schema-catalog/{s.ConnectionId}")">Tabloları Gör</a>
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    disabled="@(_scanningConnectionId is not null)"
+                                    @onclick="() => ScanAsync(s.ConnectionId)">
+                                @(_scanningConnectionId == s.ConnectionId ? "Taranıyor..." : "Şimdi Tara")
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<SchemaCatalogConnectionStats>? _stats;
+    private Guid? _scanningConnectionId;
+    private bool? _periodicScanEnabled;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _periodicScanEnabled = (await SettingsService.GetAsync()).SchemaCatalogEnabled;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() => _stats = await CatalogQuery.GetConnectionStatsAsync();
+
+    private async Task ScanAsync(Guid connectionId)
+    {
+        _scanningConnectionId = connectionId;
+        _errorMessage = null;
+
+        try
+        {
+            var scan = await CatalogService.RunForConnectionAsync(connectionId);
+            if (!scan.Success)
+                _errorMessage = $"Tarama başarısız: {scan.ErrorMessage}";
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Tarama başarısız: {ex.Message}";
+        }
+        finally
+        {
+            _scanningConnectionId = null;
+        }
+    }
+}

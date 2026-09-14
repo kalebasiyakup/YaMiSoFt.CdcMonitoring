@@ -5,7 +5,7 @@
 > proje bağlamı için `memory.md` ve `README.md`'ye, gereksinimler için
 > `CDC_Monitoring_BRD.md`'ye bakın.
 >
-> Son güncelleme: 2026-09-13
+> Son güncelleme: 2026-09-14
 
 ## Genel Durum
 
@@ -37,10 +37,11 @@ Tüm bu çalışma (kod incelemesi + .NET 10 yükseltmesi + UI modernizasyonu + 
 | Ek-7 | Topoloji hiyerarşik modele geçirildi (kaynak→hub→hedef, fan-out, odaklama/dimming), local fixture genişletildi + otomatik kuruldu (`cdc-fixture`, `mid-db`), Ayarlar sayfasına info-tooltip + e-posta test butonu, public repo hazırlığı (LICENSE, jenerik isimlendirme) | ✅ Tamamlandı, uçtan uca canlı doğrulandı, commit edildi |
 | Ek-8 | Topoloji ekranında uzun publication adlarının hub düğümlerinde çakışması giderildi (`widthConstraint` ile satır kaydırma + `nodeSpacing` artışı), Blazor'un varsayılan İngilizce reconnect UI'ı (`ReconnectModal`) Türkçeleştirildi, `/settings` → Görünüm sekmesine çerez tabanlı (tarayıcı bazlı, hesap gerektirmeyen) tarih/saat formatı tercihi (tr-TR/en-US) eklendi | ✅ Tamamlandı, `dotnet build` 0 hata; tarayıcıda görsel doğrulama bekliyor |
 | Ek-9 | Ana Sayfa/Alarmlar/Veri Tutarlılık Kontrolü/Ayarlar ekranlarındaki saatlerin sunucu saat dilimi yerine tarayıcı saat dilimine göre gösterilmesi (`ClientTimeZoneService` + JS interop, bkz. `memory.md` Teknik Tuzaklar) | ✅ Tamamlandı, `dotnet build` 0 hata; tarayıcıda görsel doğrulama bekliyor |
+| Ek-10 | **Şema Kataloğu** (FR-15/FR-16): kayıtlı her bağlantının tablo/kolon/indeks/kısıt bilgisinin periyodik salt-okuma taramasıyla toplanıp metadata DB'de "güncel durum" olarak saklanması, `/schema-catalog` katalog ekranı (şema filtresi, tablo+kolon adı araması, genişletilebilir kolon/indeks/kısıt sekmeleri, "Şimdi Tara"), `/schema-catalog/changes` şema değişiklik günlüğü, `/schema-catalog/report` rapor ekranı (tüm kolonlar + tablo/kolon açıklamaları; veritabanı/şema/arama/publication/"açıklaması olmayanlar"/"silinenler" filtreleri, tablo bazlı grup renklendirmesi, seçilebilir sayfa boyutuyla sayfalama, filtreleri koruyan **Excel (.xlsx) export**), Ayarlar'a Şema Kataloğu sekmesi ve periyodik taramayı **aç/kapa** anahtarı, retention entegrasyonu | ✅ Tamamlandı, gerçek PostgreSQL üzerinde uçtan uca doğrulandı (tarama → değişiklik tespiti → UI) |
 
 ## Mimari Özet
 
-Katmanlı çözüm: `CdcMonitoring.Domain` / `.Application` / `.Infrastructure` / `.Web` (Blazor Server). Dört arka plan işi (health check, CDC keşfi, alarm değerlendirme, veri tutarlılık kontrolü) tek bir `SchedulerTickJob`'da birleşti; her işin gerçek çalışma sıklığı `SystemSettings` tablosundan okunur, çalıştırma hakkı `JobSchedules` tablosunda atomik bir koşullu `UPDATE` ile "claim" edilir (NFR-05, çoklu replika güvenliği). Ayrıntılar için `README.md`.
+Katmanlı çözüm: `CdcMonitoring.Domain` / `.Application` / `.Infrastructure` / `.Web` (Blazor Server). Altı arka plan işi (health check, CDC keşfi, alarm değerlendirme, veri tutarlılık kontrolü, şema katalog taraması, retention temizliği) tek bir `SchedulerTickJob`'da birleşti; her işin gerçek çalışma sıklığı `SystemSettings` tablosundan okunur, çalıştırma hakkı `JobSchedules` tablosunda atomik bir koşullu `UPDATE` ile "claim" edilir (NFR-05, çoklu replika güvenliği). Ayrıntılar için `README.md`.
 
 ## Bilinen Açık Konular / Kalan İşler
 
@@ -49,12 +50,13 @@ Bunlar bilinçli olarak kapsam dışı bırakılmış veya gerçek ortamda henü
 1. **OIDC/SSO entegrasyonu yok (NFR-03).** `ICurrentUserAccessor` altyapısı hazır (`HttpContextCurrentUserAccessor`), ama gerçek bir IdP'ye bağlanmadı — audit loglarında kullanıcı adı yerine "system" görünüyor. Kurumsal IdP detayları (endpoint, client tipi) netleşince ASP.NET Core OIDC middleware eklenmeli.
 2. **Quartz clustered Postgres job store kapalı** (`Quartz:UseClusteredPostgresStore=false` varsayılan). Kod hazır ama QRTZ_* şema betiği (`create_postgres_tables.sql`) metadata DB'ye uygulanmadan açılmamalı. Not: `SchedulerTickJob`'un kendi tetikleyicisi için bu artık kritik değil — gerçek iş tekilliği `JobScheduleRepository.TryClaimAsync`'teki atomik UPDATE ile zaten garanti ediliyor; bu ayar yalnızca ek bir tutarlılık katmanı.
 3. **.NET sürümü mevcut ~40 mikroservisin standardıyla teyit edilmedi.** Proje başlangıçta .NET 8 LTS varsayımıyla kuruldu, sonradan kullanıcı isteğiyle **.NET 10**'a yükseltildi (tüm projeler `net10.0`, EF Core/Npgsql 10.x). Bu makinede yalnızca .NET 10 SDK kurulu olduğu için başka bir sürüme geri dönmek gerekirse ilgili SDK'nın da kurulması gerekir.
-4. **`CdcMonitoring.IntegrationTests` projesi hâlâ boş placeholder.** Plan Testcontainers tabanlı gerçek entegrasyon testleri öneriyordu; bunun yerine yalnızca unit testler (72 adet) + `docker-compose.local.yml` ile manuel/canlı doğrulama yapıldı. İstenirse Testcontainers ile CI'da otomatik çalışacak entegrasyon testleri eklenebilir.
+4. **`CdcMonitoring.IntegrationTests` projesi hâlâ boş placeholder.** Plan Testcontainers tabanlı gerçek entegrasyon testleri öneriyordu; bunun yerine yalnızca unit testler (91 adet) + `docker-compose.local.yml` ile manuel/canlı doğrulama yapıldı. İstenirse Testcontainers ile CI'da otomatik çalışacak entegrasyon testleri eklenebilir.
 5. **Helm chart gerçek bir Kubernetes cluster'ında test edilmedi** — yalnızca template/values incelemesi ve local docker-compose testi yapıldı.
 6. ~~Reconciliation zamanlaması "gün sayısı" tabanlıydı~~ **[Çözüldü]** Artık `ReconciliationIntervalSeconds` olarak saklanıyor, `/settings`'te dakika/saat/gün birimiyle girilebiliyor (hâlâ "son çalışmadan N süre sonra" mantığıyla, BRD'nin "her Pazar 03:00" gibi spesifik gün/saat örneğinden farklı — bu bilinçli basitleştirme sürüyor, spesifik gün/saat kontrolü isteniyorsa ayrı bir cron alanı eklenmeli).
 7. **Reconciliation sonuçları ilişki başına tek satırda birleştiriliyor** (tablo bazlı değil) — çok tablolu publication'larda UI'da yalnızca özet metin (`Details` alanı) görünüyor, tablo bazlı ayrı satır/grafik yok.
 8. **Alarm çözüldüğünde ayrı bir "resolved" e-postası gönderilmiyor** — bilinçli tasarım kararı (BRD yalnızca tetikleme bildirimini şart koşuyor), ama operasyonel olarak isteniyorsa eklenebilir.
-9. **K8s → dış PostgreSQL ağ erişimi ve kurumsal SMTP erişimi gerçek ortamda doğrulanmadı** (NFR-01, varsayım BRD §9'da zaten belirtilmiş) — yalnızca local docker-compose ağında test edildi.
+9. **Şema kataloğu büyük veritabanlarında ölçek testi yapılmadı.** Doğrulama en fazla 8 tablo/16 kolonluk test veritabanlarıyla (local fixture: 11 bağlantı) yapıldı; binlerce tablolu bir şemada tarama süresinin varsayılan 30 sn'lik zaman aşımına sığıp sığmadığı gözden geçirilmeli. ~~Üç koleksiyonun tek sorguda `Include` edilmesi (kartezyen çarpım)~~ **[Çözüldü]** — katalog sorgularının üçü de `AsSplitQuery` kullanıyor (EF'in `MultipleCollectionIncludeWarning`'i docker loglarında görülüp giderildi).
+10. **K8s → dış PostgreSQL ağ erişimi ve kurumsal SMTP erişimi gerçek ortamda doğrulanmadı** (NFR-01, varsayım BRD §9'da zaten belirtilmiş) — yalnızca local docker-compose ağında test edildi.
 
 ## Kod İncelemesinde Bulunup Düzeltilen 10 Bulgu
 
