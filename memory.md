@@ -164,6 +164,118 @@
   ve `\d+ "PgConnections"` ile hem 9 tablonun hem kolonların Türkçe yorumları canlı DB'de teyit
   edildi.
 
+- **Kafka Topic Erişim Raporu (`/kafka-audit`), README'nin önceki "Kapsam Dışı: Kafka/Debezium"
+  ifadesine rağmen bilinçli olarak eklendi:** Kullanıcı açıkça bir Strimzi/Kafka cluster'ı için
+  ayrı bir ACL+consumer-group denetim raporu istedi. Bu, projenin **CDC replikasyon mekanizmasını**
+  Kafka/Debezium'a taşımaz (o hâlâ tamamen PostgreSQL mantıksal replikasyonu) — tamamen bağımsız,
+  paralel bir özellik. README'deki "Kapsam Dışı" maddesi bu ayrımı netleştirecek şekilde
+  güncellendi (replikasyon mekanizması hâlâ Kafka kullanmıyor; `/kafka-audit` CDC akışının parçası
+  değil). Yeni bir Kafka isteği gelirse önce bu ayrımı (CDC mekanizması vs. bağımsız denetim
+  ekranı) kullanıcıyla netleştirmek gerekebilir.
+- **`Confluent.Kafka` AdminClient API'si (v2.6.1) doğrulanmış metotlar:** `IAdminClient.GetMetadata`
+  (senkron) topic/partition/replika sayısını verir; `DescribeAclsAsync(AclBindingFilter, ...)`
+  `Confluent.Kafka.Admin` namespace'inde (`ResourcePatternFilter`/`AccessControlEntryFilter`/
+  `AclOperation`/`AclPermissionType`/`ResourceType` enum'ları da orada); grup listesi için
+  `IAdminClient.ListGroups(TimeSpan)` (senkron, `Confluent.Kafka.GroupInfo` döner — **Admin
+  namespace'inde DEĞİL**), ayrıntılı assignment için `DescribeConsumerGroupsAsync(IEnumerable<string>,
+  DescribeConsumerGroupsOptions)` (`ConsumerGroupDescription.Members[].Assignment.TopicPartitions`
+  üzerinden topic adları doğrudan çözülmüş gelir — eski `GroupMemberInfo.MemberAssignment` byte[]
+  gibi elle protokol parse etmek GEREKMEZ). `AclOperation.All`, hem yazma hem okumayı zımnen
+  kapsadığından tek bir `KafkaAclBinding` değil iki ayrı binding'e (Write+Read) açılmalı — aksi
+  halde ALL yetkili bir principal raporda yalnızca tek sütunda görünür. Bu API yüzeyi build
+  makinesinde gerçek NuGet paketi indirilip reflection ile doğrulandı (bkz. Application/KafkaAudit,
+  Infrastructure/Kafka); Confluent.Kafka'nın public sürüm notlarına bakmadan tahmin etmek riskli —
+  bir üst/alt sürüme geçerken bu imzaları tekrar reflection'la teyit etmek gerekir.
+- **Kafka AdminClient için özel CA sertifikası kullanılmıyor (kullanıcı isteğiyle kaldırıldı):**
+  `KafkaConnectionOptions.SslCaLocation`, `KafkaAdminClientFactory`'deki `SslCaLocation` set'i,
+  appsettings'teki `Kafka:SslCaLocation`, docker-compose'daki `Kafka__SslCaLocation` override'ı +
+  `kafka-ca.pem` volume mount'ları, `.env.example`'daki `KAFKA_CA_CERT_PATH` ve `secrets/`
+  klasörünün tamamı (placeholder `kafka-ca.pem` + README) silindi. `SecurityProtocol.SaslSsl` hâlâ
+  kullanılıyor (TLS açık). İlk aşamada "OS'un varsayılan CA deposuna güven" yeterli sanıldı ama iki
+  ayrı gerçek engelle karşılaşıldı: (1) `aspnet:10.0` (Debian slim) taban imajında `ca-certificates`
+  paketi hiç kurulu değildi — Dockerfile'a `ca-certificates` eklendi (libgssapi-krb5-2 ile aynı
+  apt-get satırı). (2) Bu da yetmedi çünkü Aiven'ın broker sertifikası genel güvenilir bir CA'dan
+  DEĞİL, projeye özel kendi kendine imzalı bir CA'dan geliyor (`openssl s_client -connect
+  <bootstrap>:20751` ile teyit edildi: `issuer=CN=<project-id> Project CA GEN 2`,
+  `Verify return code: 19 self-signed certificate in certificate chain`). Kullanıcı bilinçli olarak
+  hiç sertifika dosyası eklenmemesini istediğinden, `KafkaAdminClientFactory`'de
+  `AdminClientConfig.EnableSslCertificateVerification = false` set edildi — TLS şifrelemesi kalır,
+  broker kimlik doğrulaması (MITM koruması) kalkar. Docker image'ı yeniden build edilip
+  `docker-compose.local.yml`'deki `app` konteynerinde gerçek Aiven cluster'ına karşı canlı test
+  edildi: SSL handshake hatası tamamen kayboldu. Yeniden bir CA dosyası eklemeden veya sertifika
+  doğrulamasını tekrar açmadan önce kullanıcıya danışılmalı.
+- **`/kafka-audit`'in prerender'da JS interop patlaması, `RendererInfo.IsInteractive` ile düzeltildi:**
+  Sayfa `@rendermode InteractiveServer` kullandığından Blazor Server önce statik prerender (JS yok)
+  sonra interactive circuit ile iki kez render ediyordu; `OnInitializedAsync` → `LoadAsync` →
+  `RenderTopologyAsync` prerender fazında JS import çağırınca "JavaScript interop calls cannot be
+  issued at this time" ile 500 dönüyordu (gerçek tarayıcıda da, sadece curl'de değil — production
+  loglarında görüldü). Çözüm: `RenderTopologyAsync` çağrısı `RendererInfo.IsInteractive` koşuluna
+  bağlandı (Index.razor:133) — ileride benzer JS-interop-in-OnInitializedAsync kalıbı görülürse
+  aynı korumayı uygulamak gerekir.
+- **Kafka ACL raporu genişletildi — ham ACL listesi + Group ACL topolojisi (kullanıcı isteğiyle):**
+  Önceden `GetTopicAclBindingsAsync` yalnızca Topic kaynak tipini ve Allow'u sorguluyor, doğrudan
+  `KafkaAclAction` (Write/Read) bilgisine indirgeyip atıyordu (Deny + Group/Cluster/TransactionalId
+  tamamen kayboluyordu). Şimdi `IKafkaAdminGateway.GetAclEntriesAsync` (Any/Any/Any filtresiyle)
+  TÜM ACL girdilerini `KafkaAclEntry(Principal, PermissionType, ResourceType, ResourceName,
+  Operation, PatternType)` olarak ham döner; Write/Read→topic eşlemesi ve Allow filtresi artık
+  `KafkaTopicAccessReportService`'te (Application katmanı) yapılıyor, Infrastructure yalnızca
+  Confluent enum'larını string'e çeviriyor. `KafkaTopicAccessReport.AclEntries` (tüm kaynak
+  tipleri, yalnızca Allow) yeni bir "ACL Detayları" tablosunda (Yetki=Operation, Kullanıcı Adı=
+  "User:" öneki soyulmuş principal, Kaynak Tipi, Kaynak Adı) gösteriliyor. `KafkaTopologyBuilder.
+  Build` artık ikinci opsiyonel parametre olarak ACL girdilerini alıyor ve Group kaynak tipindeki
+  Allow girdilerinden principal→consumer-group "group-acl" kenarları (amber, `#d9a441`) ekliyor —
+  bu, bir grubun o an aktif abone olup olmadığından (yeşil "consumes" kenarı) bağımsız olarak
+  "kim bu grubu kullanmaya yetkili"yi gösterir. Cluster/TransactionalId kaynak tipleri bilinçli
+  olarak topolojiye eklenmedi (yalnızca ACL Detayları tablosunda görünür) — topic-merkezli grafiğe
+  doğal bir bağlantı noktaları olmadığından, eklenirse yalnızca izole düğümler olarak kirlilik
+  yaratırlardı. `IKafkaAdminGateway.GetTopicAclBindingsAsync` → `GetAclEntriesAsync` olarak yeniden
+  adlandırıldı (FakeKafkaAdminGateway ve testler güncellendi). Gerçek Aiven cluster'ına karşı canlı
+  testte (browser + docker rebuild ile) üç gerçek bug bulunup düzeltildi:
+  1. **vis.js DataSet duplicate edge id:** Aynı principal+group için birden fazla ACL girdisi
+     (ör. ayrı Read + Describe operation'ları) `KafkaTopologyBuilder`'da aynı kenar id'sini
+     üretiyor, `vis.DataSet.add()` "Cannot add item: item with id ... already exists" ile
+     patlıyordu. Çözüm: group-acl kenarları eklenmeden önce `HashSet<string>` ile id bazında
+     tekilleştiriliyor.
+  2. **Confluent.Kafka 2.6.1'in `ResourceType` enum'ı eksik:** Yalnızca Unknown/Any/Topic/Group/
+     Broker(=4) tanımlı; gerçek Kafka'daki TransactionalId(=5)/DelegationToken(=6)/User(=7) için
+     isim yok, `.ToString()` ham sayı ("5") döndürüyordu (ACL Detayları tablosunda görüldü) —
+     `ConfluentKafkaAdminGateway.ResourceTypeName(ResourceType)` ile `(int)type` üzerinden manuel
+     eşleme eklendi (aynı zamanda "Broker" ismi Kafka'nın gerçek terimi olan "Cluster" ile
+     değiştirildi). Bir üst Confluent.Kafka sürümüne geçerken bu boşluğun kapanıp kapanmadığı
+     (`[enum]::GetValues([Confluent.Kafka.Admin.ResourceType])` ile PowerShell'den reflection)
+     kontrol edilmeli.
+  3. **`RenderTopologyAsync`'te yakalanmamış `JSDisconnectedException`:** Circuit tam JS çağrısı
+     sırasında kapanırsa (sayfadan ayrılma/yenileme yarış durumu) `DisposeAsync`'teki gibi
+     yakalanmıyordu, "Unhandled exception in circuit" logu üretiyordu — `LoadAsync`'teki
+     `RenderTopologyAsync` çağrısı da aynı `catch (JSDisconnectedException)` korumasına alındı.
+  Ayrıca librdkafka client'ı `DescribeAclsResponse returned unknown resource type 6` diye stdout'a
+  zararsız bir uyarı basıyor (DelegationToken ACL'leri varsa native kütüphane bunları
+  ayrıştıramıyor olabilir) — bu bizim kodumuzdan değil, librdkafka/Confluent.Kafka'nın kendi
+  sınırlamasından kaynaklanıyor, düzeltilemez/düzeltilmemeli.
+- **Topoloji topic'leri bağlantısız kalıyordu — ACL kaynak adı topic adı değil, kalıptı (kullanıcı geri bildirimi):**
+  Aiven'da topic ACL'leri `*` (tüm topic'ler) kaynak adıyla, bazıları özel topic adıyla tanımlı; ilk
+  uygulama ACL'i `ResourceName == topic adı` ile eşliyordu, `*` hiçbir topic'e uymadığından event-1/
+  event-2 grafikte izole kaldı (canlı veride `Topic *` satırları vardı ama tablo yalnızca ham listeydi).
+  Düzeltme: `KafkaTopicAccessReportService.ResourceMatchesTopic` — Literal `*` hepsine, Literal ad
+  birebir, Prefixed önek olarak eşler. Ayrıca Aiven principal VE kaynak adlarını kaçışlı döner
+  (`dom\-user\-1`, `event\-1`); `KafkaPrincipalFormatter.Unescape/DisplayName` ile hem eşlemede hem
+  gösterimde çözülüyor (ham `KafkaAclEntry` değerleri kaçışlı kalır, testler buna göre). Topolojide
+  her kullanıcıda bulunan Group `*` ACL'leri (bilgi taşımayan) artık düğüm/kenar üretmiyor.
+  ACL Detayları tablosu Aiven konsolu gibi: `KafkaAclSummaryBuilder` (kullanıcı, kaynak) başına tek
+  satır + Aiven izin adları (admin/readwrite/read/write); Blazor sayfasında arama/kaynak tipi/izin
+  filtreleri. Tarayıcı aracı bu turda yoktu: veri curl ile (prerender HTML) doğrulandı, grafik
+  görseli gözle doğrulanmadı.
+- **Kafka host/kullanıcı adı da ortam değişkeninden okunuyor (public repo hazırlığı, kullanıcı isteği):**
+  Repo public olacağından `appsettings.Development.json`'daki gerçek Aiven host'u ve `avnadmin`
+  kullanıcı adı kaldırıldı. `KafkaConnectionOptions` artık yalnızca ortam değişkeni ADLARINI tutar
+  (`BootstrapServersEnvironmentVariable`/`UsernameEnvironmentVariable`/`PasswordEnvironmentVariable`,
+  varsayılanlar `KAFKA_BOOTSTRAP_SERVERS`/`KAFKA_USERNAME`/`KAFKA_SASL_PASSWORD`); değerleri
+  `KafkaAdminClientFactory` her çağrıda ortamdan okur. compose dosyaları üçünü `.env`'den
+  enjekte eder, `.env.example` güncel şablon. Eski tuzak da kapandı: `appsettings.json`'daki boş
+  `PasswordEnvironmentVariable: ""` Development dışında varsayılana düşmüyordu; artık boş ad
+  varsayılana düşüyor (`DependencyInjection.EnvName`). Bekleyen konu: TLS doğrulamasının
+  (`EnableSslCertificateVerification=false`) `Kafka:VerifySsl` ayarına bağlanması önerildi, kullanıcı henüz onaylamadı.
+
 ## Teknik Tuzaklar / Öğrenilenler (gelecekte tekrar karşılaşılabilir)
 
 - **`dotnet ef migrations add` sırasında `HostAbortedException` fırlaması normaldir**

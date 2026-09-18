@@ -7,8 +7,10 @@ using CdcMonitoring.Application.Retention;
 using CdcMonitoring.Application.SchemaCatalog;
 using CdcMonitoring.Application.SchemaComparison;
 using CdcMonitoring.Application.Settings;
+using CdcMonitoring.Application.KafkaAudit;
 using CdcMonitoring.Infrastructure.Email;
 using CdcMonitoring.Infrastructure.Jobs;
+using CdcMonitoring.Infrastructure.Kafka;
 using CdcMonitoring.Infrastructure.Metrics;
 using CdcMonitoring.Infrastructure.Persistence;
 using CdcMonitoring.Infrastructure.Persistence.Repositories;
@@ -98,6 +100,20 @@ public static class DependencyInjection
         services.AddScoped<SchemaCatalogService>();
         services.AddScoped<SchemaCatalogQueryService>();
         services.AddScoped<SystemSettingsService>();
+
+        // Ayarlar yalnızca ortam değişkeni ADLARINI taşır; boş bırakılırsa varsayılan ad kullanılır.
+        string EnvName(string key, string fallback) =>
+            configuration[$"Kafka:{key}"] is { Length: > 0 } configured ? configured : fallback;
+
+        services.AddSingleton(new KafkaConnectionOptions
+        {
+            BootstrapServersEnvironmentVariable = EnvName("BootstrapServersEnvironmentVariable", "KAFKA_BOOTSTRAP_SERVERS"),
+            UsernameEnvironmentVariable = EnvName("UsernameEnvironmentVariable", "KAFKA_USERNAME"),
+            PasswordEnvironmentVariable = EnvName("PasswordEnvironmentVariable", "KAFKA_SASL_PASSWORD"),
+            RequestTimeoutSeconds = configuration.GetValue<int?>("Kafka:RequestTimeoutSeconds") ?? 20
+        });
+        services.AddScoped<IKafkaAdminGateway, ConfluentKafkaAdminGateway>();
+        services.AddScoped<KafkaTopicAccessReportService>();
 
         var useClusteredJobStore = configuration.GetValue<bool>("Quartz:UseClusteredPostgresStore");
 

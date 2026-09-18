@@ -27,7 +27,14 @@ WORKDIR /app
 # bağlantıda bir kerede başarısız bir yükleme denemesi loglar (fonksiyonel
 # olarak SCRAM/plain auth'a geri döner, ama gürültülü hata + gecikme yaratır
 # ve gerçek bir GSS/Kerberos ortamında sert hataya dönüşür).
-RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+#
+# ca-certificates de aynı taban imajında yok — bu paket olmadan librdkafka'nın
+# (Kafka AdminClient, SASL_SSL) kullanabileceği HİÇBİR root CA sertifikası
+# bulunmaz, bu yüzden Aiven'ın genel güvenilir bir CA'dan gelen broker
+# sertifikası bile "certificate verify failed" ile reddedilir. Özel bir CA
+# dosyası eklemek yerine (bkz. memory.md) işletim sisteminin standart genel
+# CA paketini kurmak yeterli ve doğru çözüm.
+RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app .

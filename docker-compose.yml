@@ -26,5 +26,10 @@ services:
       # local testte oradan mailpit:1025'i, kısa interval'leri vb. gir.
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__MetadataDb: "Host=metadata-db;Port=5432;Database=cdc_monitoring;Username=postgres;Password=postgres"
+      # Gerçek parola compose dosyasına yazılmaz (git'e girer) — bu dosyanın yanındaki,
+      # git'e girmeyen .env dosyasındaki KAFKA_SASL_PASSWORD buraya enjekte edilir.
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-}
+      KAFKA_USERNAME: ${KAFKA_USERNAME:-}
+      KAFKA_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-}
     ports:
       - "5299:8080"

@@ -5,7 +5,7 @@
 > proje bağlamı için `memory.md` ve `README.md`'ye, gereksinimler için
 > `CDC_Monitoring_BRD.md`'ye bakın.
 >
-> Son güncelleme: 2026-09-14
+> Son güncelleme: 2026-09-17
 
 ## Genel Durum
 
@@ -38,6 +38,7 @@ Tüm bu çalışma (kod incelemesi + .NET 10 yükseltmesi + UI modernizasyonu + 
 | Ek-8 | Topoloji ekranında uzun publication adlarının hub düğümlerinde çakışması giderildi (`widthConstraint` ile satır kaydırma + `nodeSpacing` artışı), Blazor'un varsayılan İngilizce reconnect UI'ı (`ReconnectModal`) Türkçeleştirildi, `/settings` → Görünüm sekmesine çerez tabanlı (tarayıcı bazlı, hesap gerektirmeyen) tarih/saat formatı tercihi (tr-TR/en-US) eklendi | ✅ Tamamlandı, `dotnet build` 0 hata; tarayıcıda görsel doğrulama bekliyor |
 | Ek-9 | Ana Sayfa/Alarmlar/Veri Tutarlılık Kontrolü/Ayarlar ekranlarındaki saatlerin sunucu saat dilimi yerine tarayıcı saat dilimine göre gösterilmesi (`ClientTimeZoneService` + JS interop, bkz. `memory.md` Teknik Tuzaklar) | ✅ Tamamlandı, `dotnet build` 0 hata; tarayıcıda görsel doğrulama bekliyor |
 | Ek-10 | **Şema Kataloğu** (FR-15/FR-16): kayıtlı her bağlantının tablo/kolon/indeks/kısıt bilgisinin periyodik salt-okuma taramasıyla toplanıp metadata DB'de "güncel durum" olarak saklanması, `/schema-catalog` katalog ekranı (şema filtresi, tablo+kolon adı araması, genişletilebilir kolon/indeks/kısıt sekmeleri, "Şimdi Tara"), `/schema-catalog/changes` şema değişiklik günlüğü, `/schema-catalog/report` rapor ekranı (tüm kolonlar + tablo/kolon açıklamaları; veritabanı/şema/arama/publication/"açıklaması olmayanlar"/"silinenler" filtreleri, tablo bazlı grup renklendirmesi, seçilebilir sayfa boyutuyla sayfalama, filtreleri koruyan **Excel (.xlsx) export**), Ayarlar'a Şema Kataloğu sekmesi ve periyodik taramayı **aç/kapa** anahtarı, retention entegrasyonu | ✅ Tamamlandı, gerçek PostgreSQL üzerinde uçtan uca doğrulandı (tarama → değişiklik tespiti → UI) |
+| Ek-11 | **Kafka Topic Erişim Raporu** (CDC mekanizmasından bağımsız, ayrı bir Strimzi/Kafka cluster'ı için denetim özelliği): `Confluent.Kafka` AdminClient ile SASL_SSL+SCRAM-SHA-512 bağlantısı, `DescribeAclsAsync` ile topic bazlı yazma/okuma principal'ları, `ListGroups`+`DescribeConsumerGroupsAsync` ile o an aktif abone olan consumer group'lar, internal topic (`__...`) hariç tutma, ACL/consumer-group sorgusu başarısız olursa hata fırlatmadan uyarıyla devam etme, `/kafka-audit` ekranında tablo + vis-network topoloji grafiği (producer → topic → reader/consumer-group) | ✅ Tamamlandı, `dotnet build`/`dotnet test` (97/97) ile doğrulandı; gerçek bir Strimzi cluster'ına karşı henüz canlı doğrulanmadı (bkz. Bilinen Açık Konular) |
 
 ## Mimari Özet
 
@@ -57,6 +58,7 @@ Bunlar bilinçli olarak kapsam dışı bırakılmış veya gerçek ortamda henü
 8. **Alarm çözüldüğünde ayrı bir "resolved" e-postası gönderilmiyor** — bilinçli tasarım kararı (BRD yalnızca tetikleme bildirimini şart koşuyor), ama operasyonel olarak isteniyorsa eklenebilir.
 9. **Şema kataloğu büyük veritabanlarında ölçek testi yapılmadı.** Doğrulama en fazla 8 tablo/16 kolonluk test veritabanlarıyla (local fixture: 11 bağlantı) yapıldı; binlerce tablolu bir şemada tarama süresinin varsayılan 30 sn'lik zaman aşımına sığıp sığmadığı gözden geçirilmeli. ~~Üç koleksiyonun tek sorguda `Include` edilmesi (kartezyen çarpım)~~ **[Çözüldü]** — katalog sorgularının üçü de `AsSplitQuery` kullanıyor (EF'in `MultipleCollectionIncludeWarning`'i docker loglarında görülüp giderildi).
 10. **K8s → dış PostgreSQL ağ erişimi ve kurumsal SMTP erişimi gerçek ortamda doğrulanmadı** (NFR-01, varsayım BRD §9'da zaten belirtilmiş) — yalnızca local docker-compose ağında test edildi.
+11. **Kafka Topic Erişim Raporu (Ek-11) henüz gerçek bir Strimzi cluster'ına karşı canlı doğrulanmadı** — yalnızca sahte (`FakeKafkaAdminGateway`) bir gateway ile birim testleriyle doğrulandı. `local docker-compose` ortamına Strimzi/Kafka eklenmedi; `Kafka:BootstrapServers`/`KAFKA_SASL_PASSWORD` boş bırakıldığında ekran net bir hata mesajıyla başarısız olur (uygulamanın geri kalanını etkilemez). Özel bir CA sertifikası kullanılmaz. Aiven broker'ının sertifikası kendi proje CA'sıyla (self-signed) imzalı olduğundan (`openssl s_client` ile teyit edildi — `Verify return code: 19`), CA dosyası dağıtmadan bağlanabilmek için AdminClient'ta `EnableSslCertificateVerification = false` set edilir: TLS şifrelemesi aktif kalır ama broker kimliği doğrulanmaz (bilinçli MITM koruması feragati — yalnızca bu iç/dev bağlantı için). Gerçek KafkaUser secret'ıyla ilk kullanımdan önce bir Strimzi test cluster'ına karşı uçtan uca denenmesi önerilir.
 
 ## Kod İncelemesinde Bulunup Düzeltilen 10 Bulgu
 

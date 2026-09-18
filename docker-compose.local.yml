@@ -119,5 +119,12 @@ services:
       # iki bağlantıyı Connections ekranına otomatik kaydeder (bkz. Program.cs) — elle
       # "Yeni Bağlantı" formu doldurmaya gerek kalmaz.
       Seed__LocalCdcFixtureConnections: "true"
+      # Kafka Topic Erişim Raporu (/kafka-audit) için SASL parolası. Compose dosyasına
+      # doğrudan yazılmaz — host'taki (veya bu dosyanın yanındaki, git'e girmeyen) .env
+      # dosyasındaki KAFKA_SASL_PASSWORD buraya enjekte edilir. Kafka:BootstrapServers/
+      # Username appsettings.json'da kalır.
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-}
+      KAFKA_USERNAME: ${KAFKA_USERNAME:-}
+      KAFKA_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-}
     ports:
       - "5299:8080"

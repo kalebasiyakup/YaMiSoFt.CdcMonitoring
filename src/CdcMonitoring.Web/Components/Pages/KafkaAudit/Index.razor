@@ -1,0 +1,312 @@
+@page "/kafka-audit"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@using CdcMonitoring.Application.KafkaAudit
+@inject KafkaTopicAccessReportService ReportService
+@inject IJSRuntime JS
+
+<PageTitle>Kafka Topic Erişim Raporu</PageTitle>
+
+<div class="d-flex justify-content-between align-items-start mb-2">
+    <h1>Kafka Topic Erişim Raporu</h1>
+    <button class="btn btn-outline-primary" @onclick="LoadAsync" disabled="@_loading">
+        @(_loading ? "Yükleniyor..." : "Yenile")
+    </button>
+</div>
+
+<p class="text-muted">
+    Cluster'daki her topic için ACL'lerden türetilen yazma/okuma yetkisi olan principal'lar ve
+    o an gerçekten abone olan aktif consumer group'lar listelenir. Internal topic'ler
+    (<code>__</code> ile başlayanlar — ör. <code>__consumer_offsets</code>) rapora dahil edilmez.
+    ACL'ler <code>*</code> (tüm topic'ler) veya önek kalıplarıyla tanımlıysa ilgili tüm topic'lere
+    uygulanır. Sayfanın altındaki ACL Detayları tablosu, Topic dışındaki kaynak tiplerini
+    (Group, Cluster, TransactionalId) de içeren filtrelenebilir bir liste sunar.
+</p>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_report is null)
+{
+    <p><em>Yükleniyor...</em></p>
+}
+else
+{
+    @if (_report.Warnings.Count > 0)
+    {
+        <div class="alert alert-warning">
+            <strong>Uyarı — rapor kısmi verilerle üretildi:</strong>
+            <ul class="mb-0">
+                @foreach (var warning in _report.Warnings)
+                {
+                    <li>@warning</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <p class="text-muted small">
+        Oluşturulma: @_report.GeneratedAtUtc.ToLocalTime().ToString("g") — @_report.Topics.Count topic
+    </p>
+
+    <p>
+        <span class="badge" style="background:#4a76c4;">&nbsp;</span> Yazma yetkisi (producer)
+        <span class="badge ms-3" style="background:#8a63d2;">&nbsp;</span> Topic
+        <span class="badge ms-3" style="background:#c2703d;">&nbsp;</span> Okuma yetkisi
+        <span class="badge ms-3" style="background:#2f9e64;">&nbsp;</span> Aktif consumer group
+        <span class="badge ms-3" style="background:#d9a441;">&nbsp;</span> Consumer group yetkisi (ACL)
+    </p>
+
+    <div id="kafka-topology-canvas" style="width: 100%; height: 420px; border: 1px solid #dee2e6; border-radius: 4px;"></div>
+
+    <hr class="my-4" />
+
+    @if (_report.Topics.Count == 0)
+    {
+        <p class="text-muted"><em>Görüntülenecek topic yok.</em></p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>Topic</th>
+                        <th class="text-end">Partition</th>
+                        <th class="text-end">Replikasyon</th>
+                        <th>Yazma Yetkisi</th>
+                        <th>Okuma Yetkisi</th>
+                        <th>Aktif Consumer Group'lar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _report.Topics)
+                    {
+                        <tr>
+                            <td class="fw-semibold text-nowrap">@row.TopicName</td>
+                            <td class="text-end">@row.PartitionCount</td>
+                            <td class="text-end">@row.ReplicationFactor</td>
+                            <td>@Badges(row.WritePrincipals.Select(KafkaPrincipalFormatter.DisplayName).ToList(), "bg-primary")</td>
+                            <td>@Badges(row.ReadPrincipals.Select(KafkaPrincipalFormatter.DisplayName).ToList(), "bg-warning text-dark")</td>
+                            <td>@Badges(row.ActiveConsumerGroups, "bg-success")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <hr class="my-4" />
+
+    <h2 class="h5">ACL Detayları</h2>
+    <p class="text-muted small">
+        Cluster'daki tüm kaynak tipleri (Topic, Group, Cluster, TransactionalId) için izin verilmiş
+        ACL'ler; her (kullanıcı, kaynak) çifti tek satırdır. Topic izinleri Aiven'daki gibi
+        <code>admin</code> / <code>readwrite</code> / <code>read</code> / <code>write</code> olarak özetlenir,
+        diğer kaynaklarda ilgili işlemler listelenir.
+    </p>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <input class="form-control" style="max-width: 320px;" placeholder="Ara (kullanıcı veya kaynak adı)..."
+               @bind="_search" @bind:event="oninput" />
+        <select class="form-select" style="max-width: 200px;" @bind="_resourceTypeFilter">
+            <option value="">Tüm kaynaklar</option>
+            @foreach (var type in _aclSummary.Select(r => r.ResourceType).Distinct().OrderBy(t => t))
+            {
+                <option value="@type">@type</option>
+            }
+        </select>
+        <select class="form-select" style="max-width: 220px;" @bind="_permissionFilter">
+            <option value="">Tüm izinler</option>
+            @foreach (var permission in _aclSummary.Select(r => r.Permission).Distinct().OrderBy(p => p))
+            {
+                <option value="@permission">@permission</option>
+            }
+        </select>
+    </div>
+
+    @if (FilteredAcl.Count == 0)
+    {
+        <p class="text-muted"><em>Görüntülenecek ACL girdisi yok.</em></p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>Permission</th>
+                        <th>Username</th>
+                        <th>Resource type</th>
+                        <th>Resource name</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in FilteredAcl)
+                    {
+                        <tr>
+                            <td>@row.Permission</td>
+                            <td class="text-nowrap">@row.Username</td>
+                            <td><span class="badge rounded-pill" style="@ResourceTypeStyle(row.ResourceType)">@row.ResourceType</span></td>
+                            <td class="fw-semibold text-nowrap">@row.ResourceName</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private IJSObjectReference? _module;
+    private KafkaTopicAccessReport? _report;
+    private string? _error;
+    private bool _loading;
+    private IReadOnlyList<KafkaAclSummaryRow> _aclSummary = [];
+    private string _search = "";
+    private string _resourceTypeFilter = "";
+    private string _permissionFilter = "";
+
+    private IReadOnlyList<KafkaAclSummaryRow> FilteredAcl => _aclSummary
+        .Where(r => _resourceTypeFilter == "" || r.ResourceType == _resourceTypeFilter)
+        .Where(r => _permissionFilter == "" || r.Permission == _permissionFilter)
+        .Where(r => string.IsNullOrWhiteSpace(_search)
+                    || r.Username.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                    || r.ResourceName.Contains(_search, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            _report = await ReportService.BuildReportAsync();
+            _aclSummary = KafkaAclSummaryBuilder.Build(_report.AclEntries);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Rapor oluşturulamadı: {ex.Message}";
+            _report = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        StateHasChanged();
+
+        // Statik prerender fazında (SignalR circuit henüz kurulmadan) JS interop çağrısı
+        // "JavaScript interop calls cannot be issued at this time" ile patlar — topology
+        // grafiği yalnızca interactive render'a geçildiğinde çizilir.
+        if (_report is not null && RendererInfo.IsInteractive)
+        {
+            try
+            {
+                await RenderTopologyAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Kullanıcı sayfadan ayrılırken/yenilerken circuit tam bu sırada kapanmış olabilir
+                // (DisposeAsync'teki aynı yarış durumu) — JS çağrısı sessizce atlanır.
+            }
+        }
+    }
+
+    private async Task RenderTopologyAsync()
+    {
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/kafka-topology.js");
+
+        var graph = KafkaTopologyBuilder.Build(_report!.Topics, _report.AclEntries);
+
+        var nodes = graph.Nodes.Select(n => new
+        {
+            id = n.Id,
+            label = n.Label,
+            group = n.Kind,
+            title = NodeTooltip(n)
+        }).ToList();
+
+        var edges = graph.Edges.Select(e => new
+        {
+            id = e.Id,
+            from = e.FromId,
+            to = e.ToId,
+            color = new { color = EdgeColor(e.Kind) }
+        }).ToList();
+
+        await _module.InvokeVoidAsync("render", "kafka-topology-canvas", nodes, edges);
+    }
+
+    private static string NodeTooltip(KafkaTopologyNode node) => node.Kind switch
+    {
+        "topic" => $"Topic: {node.Label}",
+        "producer" => $"Yazma yetkisi: {node.Label}",
+        "reader" => $"Okuma yetkisi: {node.Label}",
+        "consumer-group" => $"Consumer group: {node.Label}",
+        "group-acl-principal" => $"Consumer group yetkisi (ACL): {node.Label}",
+        _ => node.Label
+    };
+
+    private static string EdgeColor(string kind) => kind switch
+    {
+        "write" => "#4a76c4",
+        "read" => "#c2703d",
+        "consumes" => "#2f9e64",
+        "group-acl" => "#d9a441",
+        _ => "#adb5bd"
+    };
+
+    private static string ResourceTypeStyle(string resourceType) => resourceType switch
+    {
+        "Topic" => "background:#e3f2fd;color:#1e6fb3;",
+        "Group" => "background:#e6f6ef;color:#23805a;",
+        "Cluster" => "background:#f3ecfc;color:#6d46b8;",
+        _ => "background:#fdf3d8;color:#9a6b00;"
+    };
+
+    private static RenderFragment Badges(IReadOnlyList<string> values, string badgeClass) => builder =>
+    {
+        if (values.Count == 0)
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", "text-muted");
+            builder.AddContent(2, "—");
+            builder.CloseElement();
+            return;
+        }
+
+        var seq = 0;
+        foreach (var value in values)
+        {
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", $"badge {badgeClass} me-1 mb-1");
+            builder.AddContent(seq++, value);
+            builder.CloseElement();
+        }
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is not null)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("dispose");
+                await _module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Devre zaten kapandıysa JS çağrısı atlanır.
+            }
+        }
+    }
+}
