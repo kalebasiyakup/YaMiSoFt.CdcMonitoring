@@ -23,9 +23,9 @@ tutulur. Bakım işi ajanın sorumluluğudur.
 | Katman | Yer | Sahibi | Kural |
 |---|---|---|---|
 | Ham kaynak | `raw/` ve kökte duran mevcut malzeme | Kullanıcı | Ajana kapalıdır. Yazma, taşıma, yeniden adlandırma, silme yok. Yalnız okunur. |
-| Wiki | `wiki/`, `INDEX.md`, `log.md` | Ajan | Ajan yazar, kullanıcı okur. |
+| Wiki | `wiki/`, `INDEX.md`, `LOG.md` | Ajan | Ajan yazar, kullanıcı okur. |
 | Süreklilik ve iş | `companion/`, `notes/`, `tasks/`, `projects/` | Birlikte | Kullanıcı metni. Ajan yalnız değişmesi gereken satırı düzenler. |
-| Şema | Bu dosya, `_schema/` | Birlikte | Değiştirince `log.md`'ye `schema` kaydı ekle. |
+| Şema | Bu dosya, `_schema/` | Birlikte | Değiştirince `LOG.md`'ye `schema` kaydı ekle. |
 
 Katman karışmaz. Bir kaynağın ne dediği wiki'ye, kullanıcının ne dediği companion ve notes
 altına gider. İkisini aynı sayfada birleştirirsen hangi iddianın nereden geldiği kaybolur.
@@ -36,7 +36,7 @@ altına gider. İkisini aynı sayfada birleştirirsen hangi iddianın nereden ge
 .
 ├── AGENTS.md              bu anayasa (CLAUDE.md buraya yönlendirir)
 ├── INDEX.md               katalog, soruya başlarken ilk okunan dosya
-├── log.md                 yalnız sona eklenen kronolojik kayıt
+├── LOG.md                 yalnız sona eklenen kronolojik kayıt
 ├── raw/                   kullanıcının ham kaynakları
 │   ├── articles/           makale, web klibi, rapor, transkript
 │   ├── papers/             bildiri, kitap bölümü, PDF
@@ -129,7 +129,7 @@ Bu cümle önümüzdeki hafta yalan olacak ve doğru görünmeye devam edecek. T
 varlık nedeni tek başına bu cümledir.
 
 Damga biçimi `(as of YYYY-MM-DD)`, dışarıdan gelen olguda kaynağıyla:
-`(as of 2026-11-01, example.com)`. Eski `(as of 2026-11-01)` biçimi de tanınır, eski sayfalar
+`(as of 2026-11-01, example.com)`. Eski `(2026-11-01 itibarıyla)` biçimi de tanınır, eski sayfalar
 bozulmasın diye; yeni sayfada İngilizce biçimi yaz.
 
 `updated` alanı sayfaya ne zaman dokunulduğunu söyler, damga olgunun ne zaman gözlendiğini
@@ -144,7 +144,10 @@ cümleyi tarihli bir gözleme dönüştür. Silmek cevap değil.
 
 ## Adlandırma
 
-- Dosya adları küçük harf, ASCII, tire ile: `oran-sinirlama.md`.
+- Dosya adları küçük harf, ASCII, tire ile: `oran-sinirlama.md`. Klasör adları her zaman küçük harf.
+- Büyük harf rol içindir. Vault'un kök belgeleri TAMAMI BÜYÜK (`AGENTS.md`, `INDEX.md`, `LOG.md`,
+  `README.md`, `SETUP.md`), `companion/` kartları Baş Harfi Büyük (`Core.md`, `Last-Session.md`),
+  geri kalan her şey küçük harf. Araçların dayattığı adlar (`CLAUDE.md`, `SKILL.md`) olduğu gibi kalır.
 - Tarihli türler (`decision`, `session`) `YYYY-MM-DD-` önekiyle başlar.
 - Her varlık için tek kanonik sayfa. Varyant yeni sayfa değil, bölüm olur.
 - Bağlantılar en kısa yolla: `[[stripe]]`, `[[wiki/entities/stripe]]` değil.
@@ -162,9 +165,9 @@ cümleyi tarihli bir gözleme dönüştür. Silmek cevap değil.
 6. Mevcut bir sayfayla çelişki varsa sessizce üzerine yazma. İki tarafı da kaynaklarıyla
    `> [!conflict]` çağrısı içinde göster.
 7. Katalogu üret: `py -3 scripts/generate-index.py .`. `INDEX.md`'yi elle düzenleme.
-8. `log.md`'ye `## [YYYY-MM-DD] ingest | <başlık>` kaydı ekle.
+8. `LOG.md`'ye `## [YYYY-MM-DD] ingest | <başlık>` kaydı ekle.
 
-Toplu ingest'te kaynakları ayrı ayrı işle. Aynı anda çalışan iki ajan `log.md` dosyasına
+Toplu ingest'te kaynakları ayrı ayrı işle. Aynı anda çalışan iki ajan `LOG.md` dosyasına
 birlikte yazmaz; o dosyanın tek sahibi olur ve en sonda diske bakarak yazar. `INDEX.md` için
 sahip gerekmez: üretilen dosyadır, bütün fazlar bittikten sonra bir kez çalıştırılır.
 
@@ -175,7 +178,7 @@ sahip gerekmez: üretilen dosyadır, bütün fazlar bittikten sonra bir kez çal
 3. Wiki cevap vermiyorsa ham kaynağa in.
 4. Yanıtı kendi cümlelerinle sentezle, her iddiayı kaynağına bağla. Not yapıştırma.
 5. Yanıt kalıcı değer taşıyorsa `wiki/analyses/` altına kaydet, sentezlenmiş bir kavram
-   çıkıyorsa `wiki/concepts/` altına. `log.md`'ye `query` kaydı ekle.
+   çıkıyorsa `wiki/concepts/` altına. `LOG.md`'ye `query` kaydı ekle.
 
 ## İşlem: devir (oturum kapanışı)
 
@@ -200,7 +203,7 @@ wiki kaynakların ne dediğini tutar, companion birlikte çalışmanın nerede k
 - Kalıcı bir öğrenim varsa `wiki/concepts/` altında `origin: session` olan bir sayfaya damıt
   ve devir kartından ona bağlantı ver.
 
-Dosya sınırı aşılırsa eski kayıtları silme. `companion/Archive/` altına aylık bir dosyaya
+Dosya sınırı aşılırsa eski kayıtları silme. `companion/archive/` altına aylık bir dosyaya
 kelimesi kelimesine taşı, yerine arşiv bağlantısı bırak.
 
 ## İşlem: denetim (sağlık kontrolü)
@@ -208,7 +211,7 @@ kelimesi kelimesine taşı, yerine arşiv bağlantısı bırak.
 Önce ölç, sonra yorumla:
 
 ```
-py -3 scripts/vault-lint.py . --notes "wiki/*" --notes "INDEX.md" --notes "log.md"
+py -3 scripts/vault-lint.py . --notes "wiki/*" --notes "INDEX.md" --notes "LOG.md"
 ```
 
 Katalogun güncelliğini de kontrol et:
@@ -224,7 +227,7 @@ puanı verir. `--notes` yalnız denetlenecek dosyaları sınırlar; bağlantıla
 göre çözülür.
 
 Betiğin göremediği şeye sen bak: sayfalar arası çelişki, yeni kaynağın geçersiz kıldığı eski
-iddia, yeni kaynakla kapatılabilecek veri boşluğu. Sonucu `log.md`'ye `lint` kaydıyla yaz.
+iddia, yeni kaynakla kapatılabilecek veri boşluğu. Sonucu `LOG.md`'ye `lint` kaydıyla yaz.
 
 **Atıf örneklemesi.** Betik `source` yolunun var olduğunu doğrular, iddianın o dosyada
 geçtiğini doğrulamaz. Her denetimde son ingest'lerde dokunulan sayfalardan en çok beşini seç,
@@ -242,7 +245,7 @@ kaydeden sayfanın kendisi commit edilemez hale gelirdi.
 
 ## İşlem: şema değişikliği
 
-Bir kural işlemiyorsa bu dosyayı güncellemeyi öner, onaydan sonra değiştir ve `log.md`'ye
+Bir kural işlemiyorsa bu dosyayı güncellemeyi öner, onaydan sonra değiştir ve `LOG.md`'ye
 `schema` kaydı ekle. Değişiklik geriye dönük uygulanmaz; mevcut sayfalar bir sonraki
 dokunuşta yeni kurala geçer.
 

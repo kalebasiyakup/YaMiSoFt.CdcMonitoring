@@ -111,7 +111,7 @@ gereken satırı düzenle. İlgisiz eski notu, kullanıcının cümlelerini değ
 tamamını yeniden yazmak yerine hedefli düzenleme yap.
 
 Dosya sınırı aşıldığında hiçbir metni silme ve özetleme. En eski kayıtları
-`companion/Archive/YYYY-MM.md` dosyasına kelimesi kelimesine taşı, yerine arşiv bağlantısı
+`companion/archive/YYYY-MM.md` dosyasına kelimesi kelimesine taşı, yerine arşiv bağlantısı
 bırak. Arşivi oturum başında yükleme; eski bir ayrıntı gerekirse yalnız o dosyayı aç.
 
 ## Kişi notları

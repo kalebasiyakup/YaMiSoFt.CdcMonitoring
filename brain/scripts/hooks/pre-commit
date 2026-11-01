@@ -28,4 +28,4 @@ fi
 
 $PY "$ROOT/scripts/generate-index.py" "$ROOT" --check || exit 1
 $PY "$ROOT/scripts/vault-lint.py" "$ROOT" --staged \
-  --notes "wiki/*" --notes "INDEX.md" --notes "log.md" || exit 1
+  --notes "wiki/*" --notes "INDEX.md" --notes "LOG.md" || exit 1

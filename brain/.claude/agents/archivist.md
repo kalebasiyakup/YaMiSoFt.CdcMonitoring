@@ -56,7 +56,7 @@ Evet — `wiki/analyses/rag-ile-wiki-karsilastirmasi.md` olarak kaydedilebilir.
 Haftalık ya da istendiğinde. Önce ölç, sonra yorumla.
 
 ```
-py -3 scripts/vault-lint.py . --notes "wiki/*" --notes "INDEX.md" --notes "log.md"
+py -3 scripts/vault-lint.py . --notes "wiki/*" --notes "INDEX.md" --notes "LOG.md"
 ```
 
 Katalogun güncel olduğunu da doğrula:
@@ -91,7 +91,7 @@ denetleyen tek şey bu adım.
 
 Her denetimde:
 
-1. `log.md`'deki son `ingest` ve `query` kayıtlarına bak, o kayıtlarda dokunulan sayfaları
+1. `LOG.md`'deki son `ingest` ve `query` kayıtlarına bak, o kayıtlarda dokunulan sayfaları
    listele. Bütün vault'u değil bu listeyi örnekle.
 2. Listeden en çok beş sayfa seç. Seçim rastgele değil: `origin: source` olanlar ve en çok
    olgusal iddia taşıyanlar önce gelir.

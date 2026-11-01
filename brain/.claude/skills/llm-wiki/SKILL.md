@@ -22,7 +22,7 @@ raw/ içine kaynak  →  oku, çıkarımları konuş
                    →  wiki/sources/ altında özet
                    →  ilgili entity / concept / decision sayfalarını güncelle
                    →  katalogu üret (generate-index.py)
-                   →  log.md'ye ingest kaydı
+                   →  LOG.md'ye ingest kaydı
 ```
 
 Ayrıntı: `ingest.md`
@@ -49,7 +49,7 @@ Ayrıntı: `query.md`
 
 ```
 py -3 scripts/generate-index.py . --check
-py -3 scripts/vault-lint.py . --notes "wiki/*" --notes "INDEX.md" --notes "log.md"
+py -3 scripts/vault-lint.py . --notes "wiki/*" --notes "INDEX.md" --notes "LOG.md"
 ```
 
 Betikten sonra ajan iki şeye bakar: sayfalar arası çelişki ve atıf örneklemesi (iddia

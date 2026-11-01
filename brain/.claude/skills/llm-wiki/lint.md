@@ -13,11 +13,11 @@ Vault sağlığı. Önce ölç, sonra yorumla.
 
 ```
 py -3 scripts/generate-index.py . --check
-py -3 scripts/vault-lint.py . --notes "wiki/*" --notes "INDEX.md" --notes "log.md"
+py -3 scripts/vault-lint.py . --notes "wiki/*" --notes "INDEX.md" --notes "LOG.md"
 ```
 
 İlki katalogun sayfalarla uyumlu olduğunu doğrular. 1 ile çıkarsa katalog sapmış: betiği
-`--check` olmadan çalıştır, farkı gör, `log.md`'ye yaz.
+`--check` olmadan çalıştır, farkı gör, `LOG.md`'ye yaz.
 
 `--notes` yalnız denetlenecek dosyaları sınırlar; bağlantılar yine bütün vault'a göre çözülür.
 Bayrağı atlamayı denemeyin: bu vault'ta `AGENTS.md`, `INSTALL.md`, `_schema/` ve
@@ -26,7 +26,7 @@ Kapsamsız çalıştırınca bunlar bulgu sayılır ve puan gerçeği yansıtmaz
 altındaki malzeme için de geçerli: iki yıl önce kaydettiğin bir eğitim yazısındaki her
 `[[örnek]]` kırık bağlantı sayılır.
 
-Denetim kapsamı şudur: `wiki/`, `INDEX.md`, `log.md`. İsteğe bağlı olarak `companion/`,
+Denetim kapsamı şudur: `wiki/`, `INDEX.md`, `LOG.md`. İsteğe bağlı olarak `companion/`,
 `notes/` ve `tasks/` eklenir; bu üçünde frontmatter her dosyada zorunlu olmadığı için
 `--fields type` ile daraltmak gerekir.
 
@@ -97,7 +97,7 @@ ama Y koşuluyla" cümlesi "X" haline kayar. Yol hâlâ çözülür, puan hâlâ
 
 Her denetimde:
 
-1. `log.md`'deki son `ingest` ve `query` kayıtlarında dokunulan sayfaları listele.
+1. `LOG.md`'deki son `ingest` ve `query` kayıtlarında dokunulan sayfaları listele.
 2. En çok beş sayfa seç; `origin: source` olanlar ve en çok olgusal iddia taşıyanlar önce.
 3. Her sayfadan iki üç esaslı iddia çıkar. Esaslı iddia bir sayı, tarih, isim ya da
    nedensellik taşır.
@@ -117,7 +117,7 @@ Bulduğunu `> [!conflict]` ile işaretle, çözmeye kalkma. Kullanıcı karar ve
 
 ### Eskimiş iddia
 
-Yeni bir kaynağın geçersiz kıldığı eski cümle. `log.md`'deki son ingest kayıtlarına bak,
+Yeni bir kaynağın geçersiz kıldığı eski cümle. `LOG.md`'deki son ingest kayıtlarına bak,
 hangi sayfalara dokunulduğunu gör, onların eski komşularını kontrol et.
 
 ### Veri boşluğu
@@ -139,7 +139,7 @@ done
 ## 4. Raporu yaz
 
 Betiğin sayılarını ve kendi bulgularını birleştir, önem sırasına diz, her bulgunun yanında
-somut düzeltme öner. Sonucu `log.md`'ye `lint` kaydıyla ekle.
+somut düzeltme öner. Sonucu `LOG.md`'ye `lint` kaydıyla ekle.
 
 ## 5. Commit kapısı
 

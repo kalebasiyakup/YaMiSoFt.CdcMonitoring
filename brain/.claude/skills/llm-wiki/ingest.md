@@ -83,7 +83,7 @@ py -3 scripts/generate-index.py .
 sayfaların `type` ve `summary` alanlarından kurar, dosyanın kalanına dokunmaz. `summary`
 eksikse betik 1 ile çıkar ve hangi sayfada eksik olduğunu söyler; git, ekle, tekrar çalıştır.
 
-### 8. log.md
+### 8. LOG.md
 
 ```markdown
 ## [YYYY-MM-DD] ingest | Kaynak başlığı
@@ -99,7 +99,7 @@ eksikse betik 1 ile çıkar ve hangi sayfada eksik olduğunu söyler; git, ekle,
 - Yazılan: `wiki/sources/kaynak.md` (42 satır)
 - Güncellenen: `wiki/entities/x.md`, `wiki/concepts/y.md`
 - Açılan taslak: 2
-- Katalog üretildi, log.md güncellendi
+- Katalog üretildi, LOG.md güncellendi
 ```
 
 ## Toplu ingest
@@ -121,12 +121,12 @@ Faz 2 — düğüm ajanları (paralel)
         ↓
 
 Faz 3 — katalog ve denetim
-  Bir ajan log.md yazar, diske bakarak.
+  Bir ajan LOG.md yazar, diske bakarak.
   Katalog bir kez üretilir: py -3 scripts/generate-index.py .
   Bir ajan denetimi çalıştırır.
 ```
 
-Faz 1'de iki kural: alan ajanları `log.md` dosyasına dokunmaz (eşzamanlı ekleme yazı kaybeder)
+Faz 1'de iki kural: alan ajanları `LOG.md` dosyasına dokunmaz (eşzamanlı ekleme yazı kaybeder)
 ve her ajan yapılandırılmış çıktı döndürür (yazdığı sayfalar, atıf verdiği adlar, bulduğu
 çelişkiler, açık sorular).
 

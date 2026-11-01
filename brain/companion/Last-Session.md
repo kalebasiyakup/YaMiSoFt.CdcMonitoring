@@ -44,10 +44,10 @@ Rules:
 - Yeni kartı en üste aç. Dosyanın tamamını yeniden yazma.
 - Aynı oturumda ikinci güncelleme yeni kart açmaz, kendi kartını baştan yazar.
 - Paralel oturumlarda başka oturumların kartlarına dokunma.
-- Varsayılan sınır 3.000 karakter. Aşarsa eski kartlar `Archive/` altına kelimesi kelimesine
+- Varsayılan sınır 3.000 karakter. Aşarsa eski kartlar `archive/` altına kelimesi kelimesine
   taşınır, silinmez.
 - Ayrıntı wiki sayfalarında yaşar; karta tek bağlantı yeter.
 
 ## Önceki
 
-Arşive taşınan kartlar `Archive/` klasöründedir.
+Arşive taşınan kartlar `archive/` klasöründedir.

@@ -76,7 +76,7 @@ ver ve gövdeyi tarihle aç. Yoksa analiz altı ay sonra yanlış cevap veren bi
 
 Dosyalama kararını kullanıcıya sor. Her yanıt dosyalanmaz; tekrar sorulacak olanlar dosyalanır.
 
-### 6. log.md
+### 6. LOG.md
 
 ```markdown
 ## [YYYY-MM-DD] query | Sorunun kısa hali

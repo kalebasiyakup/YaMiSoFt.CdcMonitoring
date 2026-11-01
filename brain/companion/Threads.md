@@ -46,7 +46,7 @@ Rules:
 
 - Gövdeyi yerinde güncelle. Her güncellemede yeni tarihli paragraf ekleme.
 - Başlıklardan ibaret listeye indirgeme; durum ve sıradaki adım kalsın.
-- Varsayılan sınır 8.000 karakter. Aşarsa en eski kayıtlar `Archive/` altına taşınır.
+- Varsayılan sınır 8.000 karakter. Aşarsa en eski kayıtlar `archive/` altına taşınır.
 
 ## Kapanan konular
 

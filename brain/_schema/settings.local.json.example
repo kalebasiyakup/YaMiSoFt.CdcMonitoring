@@ -9,7 +9,7 @@
       "Edit(notes/**)",
       "Edit(tasks/**)",
       "Edit(projects/**)",
-      "Edit(log.md)",
+      "Edit(LOG.md)",
       "Bash(py -3 scripts/vault-lint.py:*)",
       "Bash(python3 scripts/vault-lint.py:*)",
       "Bash(py -3 scripts/generate-index.py:*)",

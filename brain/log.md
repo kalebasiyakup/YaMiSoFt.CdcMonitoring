@@ -4,7 +4,7 @@ Yalnız sona eklenir. Biçim: `## [YYYY-MM-DD] işlem | başlık`
 
 Önekler: `ingest`, `query`, `lint`, `handoff`, `schema`.
 
-Son beş kaydı okumak için: `grep "^## \[" log.md | tail -5`
+Son beş kaydı okumak için: `grep "^## \[" LOG.md | tail -5`
 
 ## [YYYY-MM-DD] schema | vault düzeni kuruldu
 - Oluşturulan: AGENTS.md, index.md, log.md, _schema/, wiki/, companion/, notes/, tasks/,
