@@ -22,12 +22,13 @@ Açık işlerin bulunduğu yer. Her konu bir blok, yerinde güncellenir.
 - Güncelleme: 2026-11-01
 
 ### Süreç takibinin brain'e taşınması
-- Durum: görevler, proje kuralları ve bu açık konular yazıldı. Ana projeye `CLAUDE.md` eklendi, eski
-  `memory.md` ve `PROJE_DURUMU.md` kaldırıldı. Kök dizinden açılan bir oturumun vault'u gerçekten
-  yüklediği henüz denenmedi.
+- Durum: görevler, proje kuralları ve bu açık konular yazıldı, ana projeye `CLAUDE.md` eklendi, eski
+  `memory.md` ve `PROJE_DURUMU.md` kaldırıldı ve hepsi commit edildi (2026-11-01). "Geçen sefer ne
+  yaptık" sınaması başarılı oldu, oturum kartı ve görevleri getirdi. Kalanlar: `log.md`/`LOG.md` ad
+  uyumsuzluğu ve kapalı commit kapısı.
 - Sahibi: Yakup Kalebaşı
-- Sıradaki adım: ana projeden yeni bir Claude Code oturumu açıp "geçen sefer ne yaptık" diye sormak, devir
-  kartının ve görevlerin görünüp görünmediğine bakmak.
+- Sıradaki adım: `git mv -f brain/log.md brain/LOG.md` ile adı düzeltmek, sonra kapanış devir
+  kartının gerçekten yazıldığını bir iş bitiminde sınamak.
 - Kaynaklar: [[cdc-monitoring-memory]]
 - Güncelleme: 2026-11-01
 

@@ -95,3 +95,8 @@ Son beş kaydı okumak için: `grep "^## \[" LOG.md | tail -5`
 - Altyapı yenilendi: betikler, ajanlar, skill dosyaları, `AGENTS.md`, `CLAUDE.md`, `lint.cmd`, izin örneği. `_schema/template.md` ve `_schema/conventions.md` kullanıcı düzenlemeleri (şablon bağlantılarının backtick içinde durması, `Şablonlar` bölümü) taşıdığı için değiştirilmedi.
 - Düzeltme: önceki taşıma `conventions.md` içindeki "eski biçimler hâlâ tanınır" cümlesini yanlışlıkla yeni biçime çevirmişti, eski haline getirildi.
 - Grafik: `wiki/overview`, `wiki/archive`, `projects/` ve kök belgeler için renk grubu eklendi.
+
+## [2026-11-01] handoff | commit kontrolü
+- Güncellenen: companion/Last-Session.md, companion/Threads.md
+- Bulgu: git log.md olarak izliyor, disk ve referanslar LOG.md (core.ignorecase=true); commit kapısı kapalı (core.hooksPath boş)
+- Temiz: çalışma ağacı, taşımalar R100, gizli dosya izlenmiyor, gerçek Aiven host geçmişte yok

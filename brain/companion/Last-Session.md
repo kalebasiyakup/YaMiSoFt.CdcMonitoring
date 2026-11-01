@@ -2,6 +2,15 @@
 
 Oturum başına bir devir kartı. Oturum günlüğü değil.
 
+## 2026-11-01 18:47 · commit kontrolü
+
+- Ne yaptık: kullanıcının commit ettiği üç commit'i (`b3f017e`, `1b9944c`, `0ee7b38`) denetledik. Çalışma ağacı temiz, `CLAUDE.md`, `README.md`, `Dockerfile`, `KafkaAdminClientFactory.cs` girmiş, silinen üç belge `brain/raw/` altına R100 taşıma olarak kaydedilmiş, README'nin BRD bağlantısı repoda çözülüyor. `.env`, `settings.local.json` ve `workspace.json` izlenmiyor, gerçek Aiven host adı geçmişte yok.
+- **Karar:** yok, bulgular kullanıcıya bildirildi.
+- Açık kalan: git `brain/log.md` diye izliyor, diskte ve tüm referanslarda `LOG.md`, Linux ya da CI'da bulunamaz. Commit kapısı kapalı (`core.hooksPath` boş). `raw/memory.md` içinde Aiven port numarası ve varsayılan kullanıcı adı geçiyor, geçmişte zaten vardı, düşük risk.
+- Sıradaki somut adım: `git mv -f brain/log.md brain/LOG.md` ile adı düzeltmek ve commit etmek.
+- Kaynaklar: [[overview]]
+- Belirsizlikler: commit kapısını bu iç içe düzende (vault repo kökünde değil `brain/` altında) etkinleştirmenin yan etkisi denenmedi.
+
 ## 2026-11-01 17:37 · kökteki BRD kopyasının kaldırılması
 
 - Ne yaptık: README ve kök `CLAUDE.md` BRD yolunu `brain/raw/CDC_Monitoring_BRD.md`'ye çevirdi, kökteki `CDC_Monitoring_BRD.md` silindi. BRD'nin bundan sonra yalnız `raw/` içinde elle güncellenip yeniden ingest edileceği kuralı `projects/cdc-monitoring/` altına, kök `CLAUDE.md`'ye, `cdc-monitoring-brd` sayfasına ve görev `wiki-celiskilerini-karara-bagla`'ya yazıldı.
