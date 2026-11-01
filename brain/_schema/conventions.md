@@ -136,7 +136,7 @@ HIGH bulgu olarak 10 puan düşer.
 
 Biçim `(as of YYYY-MM-DD)`. Dışarıdan gelen olguda kaynağını da yaz:
 `(as of 2026-11-01, example.com)`. Ay yeterliyse `(as of 2026-11)` geçerlidir.
-Eski `(as of 2026-11-01)` damgası ve `**Lives at:**` işaretçisi de tanınır, eski
+Eski `(2026-11-01 itibarıyla)` damgası ve `**Nerede yaşıyor:**` işaretçisi de tanınır, eski
 sayfalar bozulmasın diye; yeni sayfada İngilizce biçimleri yaz.
 
 Varsayılan eşik 30 gün, `--stamp-days` ile değişir. Eşiği geçen damga LOW bulgudur, hata

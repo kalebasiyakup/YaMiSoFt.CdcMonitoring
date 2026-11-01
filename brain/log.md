@@ -89,3 +89,9 @@ Son beş kaydı okumak için: `grep "^## \[" LOG.md | tail -5`
 - .obsidian/graph.json: dolayı geçici „-path:_schema” filtresi kaldırıldı, _schema artık bağlı ve görünür
 - Ana projede: kök CLAUDE.md eski adlardan (Kurallar, sureklilik, [kapsam]) yeni adlara (Rules, continuity, [scope]) güncellendi
 - Kökteki boş baska-sayfa.md ve efcore-tuzaklari.md Obsidian’ın ürettikleri boş dosyalardı, ikisi de silinmiş
+
+## [2026-11-01] schema | log.md → LOG.md, companion/archive ve renk grupları
+- Yeniden adlandırılan: `log.md` → `LOG.md`, `companion/Archive/` → `companion/archive/`. Kullanıcı içeriğinde yalnız bu adlara giden bağlantı ve yol metinleri güncellendi.
+- Altyapı yenilendi: betikler, ajanlar, skill dosyaları, `AGENTS.md`, `CLAUDE.md`, `lint.cmd`, izin örneği. `_schema/template.md` ve `_schema/conventions.md` kullanıcı düzenlemeleri (şablon bağlantılarının backtick içinde durması, `Şablonlar` bölümü) taşıdığı için değiştirilmedi.
+- Düzeltme: önceki taşıma `conventions.md` içindeki "eski biçimler hâlâ tanınır" cümlesini yanlışlıkla yeni biçime çevirmişti, eski haline getirildi.
+- Grafik: `wiki/overview`, `wiki/archive`, `projects/` ve kök belgeler için renk grubu eklendi.
