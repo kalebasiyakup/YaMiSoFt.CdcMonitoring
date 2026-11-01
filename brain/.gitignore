@@ -1,0 +1,17 @@
+# Obsidian çalışma dosyaları
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+
+# Avenox Beyin V3 kurulursa
+.beyin-note-write/
+.beyin-runtime.json
+
+# İşletim sistemi
+.DS_Store
+Thumbs.db
+
+# Gizli değerler buraya girmez, yine de ağ
+.env
+.env.local
+*.log

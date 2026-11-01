@@ -1,0 +1,31 @@
+#!/bin/sh
+# Vault pre-commit kapısı. İki deterministik kontrol, model çalışmaz, token harcamaz.
+#
+#   1. INDEX.md katalogu güncel mi (generate-index.py --check)
+#   2. Staged markdown dosyalarında yapısal bulgu var mı (vault-lint.py --staged)
+#
+# Kurmak için, vault kökünde bir kez:
+#   git config core.hooksPath scripts/hooks
+#
+# Atlamak için: git commit --no-verify
+# İşaretlenmiş çelişki varsayılan olarak bloklamaz; bloklasın istersen aşağıdaki
+# vault-lint satırına --gate-conflicts ekle.
+
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+if command -v py >/dev/null 2>&1; then
+  PY="py -3"
+elif command -v python3 >/dev/null 2>&1; then
+  PY="python3"
+elif command -v python >/dev/null 2>&1; then
+  PY="python"
+else
+  echo "pre-commit: python not found, gate skipped" >&2
+  exit 0
+fi
+
+$PY "$ROOT/scripts/generate-index.py" "$ROOT" --check || exit 1
+$PY "$ROOT/scripts/vault-lint.py" "$ROOT" --staged \
+  --notes "wiki/*" --notes "INDEX.md" --notes "log.md" || exit 1

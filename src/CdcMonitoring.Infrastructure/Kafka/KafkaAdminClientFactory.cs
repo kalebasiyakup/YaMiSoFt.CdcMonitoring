@@ -10,7 +10,8 @@ namespace CdcMonitoring.Infrastructure.Kafka;
 /// Aiven'ın broker sertifikası kendi proje CA'sıyla (self-signed) imzalı, herkese güvenilir bir
 /// CA'dan gelmiyor. Bir CA sertifikası dosyası dağıtmamak için sertifika doğrulaması bilinçli
 /// olarak kapatılıyor (TLS şifreleme yine de aktif kalır, yalnızca broker kimliği doğrulanmaz —
-/// bu bir MITM koruması feragatidir; bkz. memory.md).
+/// bu bir MITM koruması feragatidir). Doğrulamayı yeniden açmadan ya da bir CA dosyası eklemeden
+/// önce proje sahibine danışılmalı.
 /// </summary>
 internal static class KafkaAdminClientFactory
 {

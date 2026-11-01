@@ -1,0 +1,68 @@
+/* Katman renkleri ve protokolün kullandığı çağrılar.
+   Settings → Appearance → CSS snippets bölümünden aç.
+   Temel hali claude-obsidian-kit (MIT, Selma) snippet'inden uyarlandı. */
+
+.theme-dark, .theme-light {
+  --vk-architecture: #E07A5F;
+  --vk-decision:     #C99A2E;
+  --vk-entity:       #2A9D8F;
+  --vk-concept:      #6C91BF;
+  --vk-analysis:     #D96BA0;
+  --vk-source:       #8A8580;
+  --vk-companion:    #F2A65A;
+  --vk-notes:        #7FB069;
+  --vk-task:         #C75C5C;
+  --vk-projects:     #A9714B;
+  --vk-archive:      #BDB7AF;
+  --vk-overview:     #4CC9F0;
+  --vk-docs:         #5E60CE;
+  --vk-raw:          #5C5C5C;
+  --vk-schema:       #B07BC4;
+  --vk-conflict:     #A63D2F;
+}
+.theme-dark { --vk-decision: #E9C46A; }
+
+/* Önemli kısım.
+   Protokol çelişkiyi > [!conflict] ile işaretlemeyi söylüyor, Obsidian'da böyle bir çağrı
+   türü yok. Bu kural olmadan dikkatle işaretlediğin her çelişki okuma görünümünde isimsiz
+   gri bir nota dönüşüyor, yani protokol çalışıyor ama göremiyorsun. */
+.callout[data-callout="conflict"] {
+  --callout-color: 166, 61, 47;
+  --callout-icon: lucide-git-fork;
+  border-left: 4px solid var(--vk-conflict);
+}
+.callout[data-callout="conflict"] .callout-title { text-transform: none; }
+
+/* Çözülen çelişki. */
+.callout[data-callout="resolved"] {
+  --callout-color: 42, 157, 143;
+  --callout-icon: lucide-check-check;
+}
+
+/* Arşive alınan sayfa. Bu düzen silmek yerine arşivler; görünür olsun. */
+.callout[data-callout="archived"] {
+  --callout-color: 138, 133, 128;
+  --callout-icon: lucide-archive;
+}
+
+/* Dosya gezgini: katmana göre renk. */
+.nav-folder-title[data-path="wiki/architecture"] { --vk: var(--vk-architecture); }
+.nav-folder-title[data-path="wiki/decisions"]    { --vk: var(--vk-decision); }
+.nav-folder-title[data-path="wiki/entities"]     { --vk: var(--vk-entity); }
+.nav-folder-title[data-path="wiki/concepts"]     { --vk: var(--vk-concept); }
+.nav-folder-title[data-path="wiki/analyses"]     { --vk: var(--vk-analysis); }
+.nav-folder-title[data-path="wiki/sources"]      { --vk: var(--vk-source); }
+.nav-folder-title[data-path="wiki/archive"]      { --vk: var(--vk-archive); }
+.nav-folder-title[data-path^="companion"]        { --vk: var(--vk-companion); }
+.nav-folder-title[data-path^="notes"]            { --vk: var(--vk-notes); }
+.nav-folder-title[data-path^="tasks"]            { --vk: var(--vk-task); }
+.nav-folder-title[data-path^="projects"]         { --vk: var(--vk-projects); }
+.nav-folder-title[data-path^="raw"]              { --vk: var(--vk-raw); }
+.nav-folder-title[data-path^="_schema"]          { --vk: var(--vk-schema); }
+
+.nav-folder-title[data-path]:not([data-path=""]) {
+  border-left: 3px solid var(--vk, transparent);
+  border-radius: 0 var(--radius-s) var(--radius-s) 0;
+}
+.nav-folder-title[data-path] .nav-folder-title-content { color: var(--vk); }
+.nav-folder-title[data-path^="raw"] .nav-folder-title-content { font-style: italic; }

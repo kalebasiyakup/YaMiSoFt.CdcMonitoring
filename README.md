@@ -2,7 +2,7 @@
 
 PostgreSQL örnekleri arasındaki mantıksal replikasyon (publication/subscription) tabanlı CDC (Change Data Capture) ilişkilerini kayıt altına alan, keşfeden, izleyen ve sağlıksız durumlarda e-posta ile bildiren **tamamen salt-gözlem (read-only)** bir .NET uygulaması.
 
-Gereksinimlerin tam listesi için bkz. [`CDC_Monitoring_BRD.md`](./CDC_Monitoring_BRD.md).
+Gereksinimlerin tam listesi için bkz. [`CDC_Monitoring_BRD.md`](./brain/raw/CDC_Monitoring_BRD.md).
 
 ## Problem
 

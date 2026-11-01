@@ -30,10 +30,11 @@ WORKDIR /app
 #
 # ca-certificates de aynı taban imajında yok — bu paket olmadan librdkafka'nın
 # (Kafka AdminClient, SASL_SSL) kullanabileceği HİÇBİR root CA sertifikası
-# bulunmaz, bu yüzden Aiven'ın genel güvenilir bir CA'dan gelen broker
-# sertifikası bile "certificate verify failed" ile reddedilir. Özel bir CA
-# dosyası eklemek yerine (bkz. memory.md) işletim sisteminin standart genel
-# CA paketini kurmak yeterli ve doğru çözüm.
+# bulunmaz ve genel güvenilir bir CA'dan gelen broker sertifikaları bile
+# "certificate verify failed" ile reddedilir. Tek başına yeterli değil: Aiven'ın
+# broker sertifikası projeye özel kendi kendine imzalı bir CA'dan geliyor, bu
+# yüzden KafkaAdminClientFactory'de sertifika doğrulaması bilinçli olarak
+# kapatılıyor (TLS şifrelemesi açık kalır, broker kimliği doğrulanmaz).
 RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

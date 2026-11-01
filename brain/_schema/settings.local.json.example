@@ -1,0 +1,25 @@
+{
+  "_comment": "Bunu .claude/settings.local.json olarak kopyala. Ajanın wiki ve süreklilik katmanına yazmasına izin verir, raw/ ve anayasaya yazmasını engeller. Claude Code bu dosyayı oturumun kendi izinleri saydığı için ajan kendisi yazamaz; kopyalamayı sen yaparsın.",
+  "_comment_edit": "Yalnız Edit kuralları yazılır: Claude Code Edit kuralını Write dahil bütün dosya değiştiren araçlara uygular, Write(...) kuralı hiç eşleşmez ve uyarı verir.",
+  "_comment_index": "INDEX.md artık üretilen dosyadır. Elle düzenlenmemesi için Edit izni kaldırıldı; betiğin kendisi yazar.",
+  "permissions": {
+    "allow": [
+      "Edit(wiki/**)",
+      "Edit(companion/**)",
+      "Edit(notes/**)",
+      "Edit(tasks/**)",
+      "Edit(projects/**)",
+      "Edit(log.md)",
+      "Bash(py -3 scripts/vault-lint.py:*)",
+      "Bash(python3 scripts/vault-lint.py:*)",
+      "Bash(py -3 scripts/generate-index.py:*)",
+      "Bash(python3 scripts/generate-index.py:*)"
+    ],
+    "deny": [
+      "Edit(raw/**)",
+      "Edit(AGENTS.md)",
+      "Edit(CLAUDE.md)",
+      "Edit(INDEX.md)"
+    ]
+  }
+}
